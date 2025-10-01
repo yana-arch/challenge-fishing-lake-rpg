@@ -1,0 +1,5 @@
+{
+  "name": "Challenge Fishing Lake RPG",
+  "description": "An RPG fishing game where players catch various fish and items, manage their inventory, and face unique challenges. This is the core gameplay implementation.",
+  "requestFramePermissions": []
+}
