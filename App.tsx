@@ -4,7 +4,7 @@ import { useSoundManager } from './components/SoundManager';
 import { SoundManagerProvider } from './components/SoundManager';
 import { GameStatus, ItemType, Item } from './types';
 import { CoinIcon, LevelIcon, FishIcon, ZapIcon } from './components/Icons';
-import { RARITY_COLORS, SHOCK_DEVICE_COST } from './constants';
+import { RARITY_COLORS, SHOCK_DEVICE_COST, LAKE_BOMB_COST, CHEMICAL_BOTTLE_COST } from './constants';
 import FishingMinigame from './components/FishingMinigame';
 import DivingMinigame from './components/DivingMinigame';
 import Modal from './components/Modal';
@@ -15,11 +15,12 @@ import Crafting from './components/Crafting';
 import './styles/animations.css';
 
 const App: React.FC = () => {
-  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward, applyPenalty, calculateDebtInterest, applyDebtTax, repayDebt, debtPayAmount, setDebtPayAmount, eatFish, throwBombAtBot, craftItem, shareFish } = useGameLogic();
+  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, throwBombAtBot: throwBomb, dumpChemicalAtBot, careBotWithHealth, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward, applyPenalty, calculateDebtInterest, applyDebtTax, repayDebt, debtPayAmount, setDebtPayAmount, eatFish, craftItem, shareFish } = useGameLogic();
   const { playSound } = useSoundManager();
   const [activeTab, setActiveTab] = useState<'log' | 'actions' | 'shop' | 'quests' | 'leaderboard' | 'crafting'>('log');
   const [showTutorial, setShowTutorial] = useState(!localStorage.getItem('tutorialCompleted'));
   const [disruptiveAction, setDisruptiveAction] = useState<'steal' | 'explode' | 'chemical' | null>(null);
+  const [targetBotId, setTargetBotId] = useState<number | null>(null);
   const [showDebtModal, setShowDebtModal] = useState<boolean>(false);
   const xpForNextLevel = 100;
   const xpProgress = (player.xp % xpForNextLevel) / xpForNextLevel * 100;
@@ -173,10 +174,17 @@ const App: React.FC = () => {
                      </button>
                    )}
                    <button
-                     onClick={() => shareFish(item.instanceId, Math.floor(Math.random() * bots.length) + 1)}
+                     onClick={() => {
+                       const availableBots = bots.filter(b => b.state !== 'fainted' && b.health < 80);
+                       if (availableBots.length > 0) {
+                         careBotWithHealth(item.instanceId, availableBots[Math.floor(Math.random() * availableBots.length)].id);
+                       } else {
+                         careBotWithHealth(item.instanceId, Math.floor(Math.random() * bots.length) + 1);
+                       }
+                     }}
                      className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded"
                    >
-                     Share
+                     Care
                    </button>
                    <button
                      onClick={() => sellItem(item.instanceId)}
@@ -222,45 +230,33 @@ const App: React.FC = () => {
             <p className="text-right text-sm mt-2">You have: {player.shockDevices}</p>
         </div>
 
-        {/* Black Market - only show if reputation low */}
-        {player.reputation < 50 && (
-            <div className="bg-red-900/20 p-3 rounded-lg mt-3 border border-red-500/30">
-                <h4 className="text-red-300 font-semibold mb-2">🕵️ Dark Market (Rep: {player.reputation})</h4>
-                <div className="space-y-2">
-                    <div>
-                        <p className="text-sm text-gray-300">Thief Tools - Steal fish from targets</p>
-                        <button
-                            disabled={player.money < 500}
-                            className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded disabled:opacity-50"
-                            onClick={() => alert('Steal feature ready for implementation!')}
-                        >
-                            Buy (500g)
-                        </button>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-300">Lake Bomb - Disrupt fishing globally</p>
-                        <button
-                            disabled={player.money < 1000}
-                            className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded disabled:opacity-50"
-                            onClick={() => alert('Explosion feature ready for implementation!')}
-                        >
-                            Buy (1000g)
-                        </button>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-300">Chemical - Mutate fish for profit</p>
-                        <button
-                            disabled={player.money < 300}
-                            className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded disabled:opacity-50"
-                            onClick={() => alert('Chemical feature ready for implementation!')}
-                        >
-                            Buy (300g)
-                        </button>
-                    </div>
+        {/* Health-Related Disruptive Actions */}
+        <div className="bg-yellow-900/20 p-3 rounded-lg mt-3 border border-yellow-500/30">
+            <h4 className="text-yellow-300 font-semibold mb-2">💥 Disruptive Actions</h4>
+            <div className="space-y-2">
+                <div>
+                    <p className="text-sm text-gray-300">Lake Bomb - Area damage to all nearby bots</p>
+                    <button
+                        disabled={player.money < LAKE_BOMB_COST}
+                        className="text-xs bg-red-600 hover:bg-red-700 px-2 py-1 rounded disabled:opacity-50"
+                        onClick={() => setDisruptiveAction('explode')}
+                    >
+                        Detonate ({LAKE_BOMB_COST}g)
+                    </button>
                 </div>
-                <p className="text-xs text-red-400 mt-2">⚠️ High risk, heavy penalties if caught!</p>
+                <div>
+                    <p className="text-sm text-gray-300">Chemical Bomb - Periodic damage to nearby bots</p>
+                    <button
+                        disabled={player.money < CHEMICAL_BOTTLE_COST}
+                        className="text-xs bg-green-600 hover:bg-green-700 px-2 py-1 rounded disabled:opacity-50"
+                        onClick={() => setDisruptiveAction('chemical')}
+                    >
+                        Dump ({CHEMICAL_BOTTLE_COST}g)
+                    </button>
+                </div>
             </div>
-        )}
+            <p className="text-xs text-red-400 mt-2">⚠️ Damages bot health, affects reputation, may trigger penalties!</p>
+        </div>
     </div>
   );
 
@@ -295,22 +291,41 @@ const App: React.FC = () => {
        {/* Bots */}
        {bots.map(bot => {
          const isStunned = bot.stunnedUntil && Date.now() < bot.stunnedUntil;
+         const healthPercent = (bot.health / bot.maxHealth) * 100;
+         const healthColor = bot.state === 'fainted' ? 'bg-gray-600' :
+                           bot.state === 'weak' ? 'bg-red-500' :
+                           bot.state === 'tired' ? 'bg-yellow-500' :
+                           bot.state === 'caution' ? 'bg-orange-500' : 'bg-green-500';
+
          return (
-         <div 
-            key={bot.id} 
-            className="absolute text-center cursor-pointer group" 
+         <div
+            key={bot.id}
+            className="absolute text-center cursor-pointer group"
             style={{top: bot.position.top, left: bot.position.left}}
             onClick={() => useElectricShock(bot.id)}
             >
-           <img src={`https://picsum.photos/seed/${bot.name}/64/64`} alt={bot.name} className={`w-12 h-12 rounded-full border-2 border-gray-500 transition-all ${isStunned ? 'animate-bounce' : ''} group-hover:border-red-500`}/>
-            <span className="mt-1 text-xs inline-block bg-black/50 px-1.5 py-0.5 rounded text-white">{bot.name}</span>
-            {bot.isFishing && !isStunned &&
+           {/* Health Bar */}
+           <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-14 h-2 bg-gray-700 rounded-full overflow-hidden border border-gray-600">
+             <div
+               className={`h-full ${healthColor} transition-all duration-300`}
+               style={{ width: `${healthPercent}%` }}
+             ></div>
+           </div>
+
+           <img src={`https://picsum.photos/seed/${bot.name}/64/64`} alt={bot.name} className={`w-12 h-12 rounded-full border-2 border-gray-500 transition-all ${isStunned ? 'animate-bounce' : ''} ${bot.state === 'fainted' ? 'grayscale opacity-50' : ''} group-hover:border-red-500`}/>
+            <span className={`mt-1 text-xs inline-block bg-black/50 px-1.5 py-0.5 rounded text-white ${bot.state === 'fainted' ? 'line-through' : ''}`}>
+              {bot.state === 'fainted' ? `💔 ${bot.name}` : bot.name}
+            </span>
+            {bot.isFishing && !isStunned && bot.state !== 'fainted' && bot.health >= 30 &&
               <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 w-1.5 h-12 bg-gray-400/30 -rotate-45 origin-bottom-left"></div>
             }
             {isStunned &&
               <div className="absolute -top-2 -right-2 text-yellow-300">
                 <ZapIcon className="w-6 h-6 animate-ping" />
               </div>
+            }
+            {bot.state === 'weak' && !isStunned &&
+              <div className="absolute -top-1 -right-1 text-red-400 text-xs">😷</div>
             }
          </div>
        )})}
@@ -519,7 +534,7 @@ const App: React.FC = () => {
                                     key={bot.id}
                                     className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded text-sm transition-colors"
                                     onClick={() => {
-                                        throwBombAtBot(bot.id);
+                                        throwBomb(bot.id);
                                         acknowledgeCatch();
                                     }}
                                 >
@@ -568,6 +583,71 @@ const App: React.FC = () => {
                     </button>
                 )}
             </div>
+        </Modal>
+
+        {/* Disruptive Action Confirmation Modals */}
+        <Modal isOpen={disruptiveAction === 'explode'} onClose={() => setDisruptiveAction(null)}>
+          <div className="p-6 max-w-md">
+            <h2 className="text-2xl font-bold text-red-400 mb-4">💥 Lake Bomb - Choose Target Area</h2>
+            <div className="text-center mb-6">
+              <div className="mx-auto my-4 text-6xl">💣</div>
+              <p className="text-sm text-yellow-300 mb-2">This will damage <strong>ALL nearby bots</strong> in the blast radius!</p>
+              <p className="text-sm text-red-300">Cost: {LAKE_BOMB_COST}g • -15 Reputation • Pollution increase</p>
+              <p className="text-xs text-gray-400 mt-2">High chance of detection and penalties!</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  throwBomb(0); // 0 means area damage
+                  setDisruptiveAction(null);
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded font-semibold"
+              >
+                Detonate Bomb!
+              </button>
+              <button
+                onClick={() => setDisruptiveAction(null)}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        <Modal isOpen={disruptiveAction === 'chemical'} onClose={() => setDisruptiveAction(null)}>
+          <div className="p-6 max-w-md">
+            <h2 className="text-2xl font-bold text-green-400 mb-4">🧪 Chemical Dump - Choose Target</h2>
+            <div className="text-center mb-6">
+              <div className="mx-auto my-4 text-6xl">🧪</div>
+              <p className="text-sm text-yellow-300 mb-2">This will <strong>periodically damage nearby bots</strong>!</p>
+              <p className="text-sm text-red-300">Cost: {CHEMICAL_BOTTLE_COST}g • -10 Reputation • Pollution +10 • 4-hour duration</p>
+              <p className="text-xs text-gray-400 mt-2">Steady, invisible damage...</p>
+            </div>
+            <div className="space-y-2 mb-4">
+              <p className="text-sm font-semibold text-gray-300">Select target bot:</p>
+              <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
+                {bots.filter(bot => bot.state !== 'fainted').map(bot => (
+                  <button
+                    key={bot.id}
+                    className="bg-gray-700 hover:bg-red-600 text-left py-2 px-3 rounded text-sm transition-colors"
+                    onClick={() => {
+                      dumpChemicalAtBot(bot.id);
+                      setDisruptiveAction(null);
+                    }}
+                  >
+                    {bot.name} (Health: {Math.round((bot.health / bot.maxHealth) * 100)}%)
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => setDisruptiveAction(null)}
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded"
+            >
+              Cancel
+            </button>
+          </div>
         </Modal>
 
         <Modal isOpen={showDebtModal} onClose={() => setShowDebtModal(false)}>

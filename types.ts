@@ -86,6 +86,12 @@ export interface Bot {
     position: { top: string; left: string };
     isFishing: boolean;
     stunnedUntil?: number;
+    health: number;
+    maxHealth: number;
+    state: 'healthy' | 'caution' | 'tired' | 'weak' | 'fainted';
+    inventory: InventoryItem[];
+    lastRegenTime: number;
+    lastFishedTime: number;
 }
 
 export enum GameStatus {

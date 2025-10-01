@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Player, GameStatus, Item, InventoryItem, Bot, Rod, Bait, DangerType } from '../types';
-import { ALL_ITEMS, INITIAL_PLAYER_STATE, XP_PER_LEVEL, RARITY_WEIGHTS, BOTS, SHOCK_DEVICE_COST, SHOCK_STUN_DURATION_MS, SHOCK_CAUGHT_CHANCE, SHOCK_FINE, ALL_RODS, ALL_BAITS, ENERGY_COST_FISHING, ENERGY_COST_DIVING, ENERGY_COST_CLEANING, ENERGY_REGEN_RATE, getPollutionEffect } from '../constants';
+import { ALL_ITEMS, INITIAL_PLAYER_STATE, XP_PER_LEVEL, RARITY_WEIGHTS, BOTS, SHOCK_DEVICE_COST, SHOCK_STUN_DURATION_MS, SHOCK_CAUGHT_CHANCE, SHOCK_FINE, ALL_RODS, ALL_BAITS, ENERGY_COST_FISHING, ENERGY_COST_DIVING, ENERGY_COST_CLEANING, ENERGY_REGEN_RATE, getPollutionEffect, SHOCK_BOT_DAMAGE, BOMB_BOT_DAMAGE_AREA_BASE, BOMB_BOT_DAMAGE_POLLUTION_MULTIPLIER, CHEMICAL_BOT_DAMAGE_PER_PERIOD, DAMAGE_OVERUSE_MULTIPLIER, OVERUSE_LIMIT_PER_HOUR, BOT_MAX_HEALTH, BOT_REGEN_RATE_PER_30_SEC, BOT_FISHING_HEALTH_COST, BOT_AUTO_FISH_HEALTH_COST, BOT_EAT_RESTORE_HEALTH, BOT_CHEMICAL_DAMAGE_DELAY_MINUTES, BOT_FAINTED_DURATION_MS, BOT_FAINTED_RESET_HEALTH, BOT_CARE_REPUTATION_MULTIPLIER, BOT_SHARE_ENERGY_BONUS, BOT_REVENGE_CHANCE, BOT_REVENGE_DAMAGE, BOT_LAKE_UPSET_POLLUTION_BONUS, LAKE_ALARM_DAMAGE_THRESHOLD, LAKE_ALARM_DEBT_PENALTY, LAKE_ALARM_DISCOVERY_INCREASE, BOT_CARE_POLLUTION_REDUCTION, BOT_SHARE_DEBT_REDUCTION_PERCENT, LAKE_BOMB_COST, CHEMICAL_BOTTLE_COST } from '../constants';
 
 const SAVE_KEY = 'challengeFishingLakeSave';
 
@@ -925,6 +925,325 @@ export const useGameLogic = () => {
     updateQuestProgress('use_shock');
   }, [player.shockDevices, bots, player.reputation, addLog, applyPenalty, updateQuestProgress]);
 
+  // Bot Health System Functions
+
+  // Damage application logic
+  const applyDamageToBot = useCallback((botId: number, damage: number, source: 'shock' | 'bomb' | 'chemical' | 'steal') => {
+    setBots(prevBots => prevBots.map(bot => {
+      if (bot.id !== botId) return bot;
+
+      const currentTime = Date.now();
+      let overuseDamage = 1;
+
+      // Calculate overuse damage multiplier
+      const gameState = { overuse: { shock: 0, bomb: 0, chemical: 0 } }; // This would be stored in game state
+      if (gameState.overuse[source] >= OVERUSE_LIMIT_PER_HOUR) {
+        overuseDamage = DAMAGE_OVERUSE_MULTIPLIER;
+        addLog(`⚠️ Overusing ${source} actions! Damage increased by ${Math.floor((overuseDamage - 1) * 100)}%!`);
+      }
+
+      const totalDamage = damage * overuseDamage;
+      const newHealth = Math.max(0, bot.health - totalDamage);
+
+      // Update bot state based on health
+      let newState: Bot['state'] = 'healthy';
+      if (newHealth <= 20) newState = 'weak';
+      else if (newHealth <= 50) newState = 'tired';
+      else if (newHealth <= 80) newState = 'caution';
+
+      // Special handling for fainted
+      if (newHealth === 0) {
+        newState = 'fainted';
+        addLog(`😵 ${bot.name} fainted from damage! They need time to recover...`);
+        // Schedule recovery
+        setTimeout(() => {
+          setBots(recoveryBots => recoveryBots.map(recoveryBot => {
+            if (recoveryBot.id === botId) {
+              addLog(`🛌 ${recoveryBot.name} recovered from fainting!`);
+              return {
+                ...recoveryBot,
+                health: BOT_FAINTED_RESET_HEALTH,
+                state: 'caution' as const,
+                stunnedUntil: undefined
+              };
+            }
+            return recoveryBot;
+          }));
+        }, BOT_FAINTED_DURATION_MS);
+      }
+
+      // Trigger revenge system if health is low
+      if (newHealth < 50 && Math.random() < BOT_REVENGE_CHANCE) {
+        addLog(`👎 ${bot.name} is unhappy about the damage! Watch out for retaliation...`);
+        // Schedule random revenge in 10-30 seconds
+        setTimeout(() => {
+          setPlayer(prev => {
+            const newEnergy = Math.max(0, prev.energy - BOT_REVENGE_DAMAGE);
+            if (newEnergy < prev.energy) {
+              addLog(`⚡ ${bot.name} retaliated! Lost ${BOT_REVENGE_DAMAGE} energy.`);
+            }
+            return { ...prev, energy: newEnergy };
+          });
+        }, Math.random() * 20000 + 10000);
+      }
+
+      // Log damage
+      const damageDescription = {
+        shock: '⚡ shocked',
+        bomb: '💥 bombed',
+        chemical: '🧪 poisoned',
+        steal: '🤏 stole from'
+      }[source];
+
+      addLog(`${damageDescription} ${bot.name}! Health: ${bot.health}/${BOT_MAX_HEALTH} → ${newHealth}/${BOT_MAX_HEALTH}`);
+
+      return {
+        ...bot,
+        health: newState === 'fainted' ? 0 : newHealth,
+        state: newState,
+        stunnedUntil: newState === 'fainted' ? currentTime + BOT_FAINTED_DURATION_MS : bot.stunnedUntil,
+        isFishing: newHealth < 80 ? false : bot.isFishing
+      };
+    }));
+  }, [addLog]);
+
+  // Bot health regeneration
+  useEffect(() => {
+    const regenerationInterval = setInterval(() => {
+      setBots(currentBots => currentBots.map(bot => {
+        if (bot.state === 'fainted' || bot.health >= BOT_MAX_HEALTH) return bot;
+
+        const newHealth = Math.min(BOT_MAX_HEALTH, bot.health + BOT_REGEN_RATE_PER_30_SEC);
+        let newState: Bot['state'] = 'healthy';
+        if (newHealth <= 20) newState = 'weak';
+        else if (newHealth <= 50) newState = 'tired';
+        else if (newHealth <= 80) newState = 'caution';
+
+        return {
+          ...bot,
+          health: newHealth,
+          state: newState,
+          lastRegenTime: Date.now()
+        };
+      }));
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(regenerationInterval);
+  }, []);
+
+  // Bot auto-fishing with health cost
+  useEffect(() => {
+    const botFishingInterval = setInterval(() => {
+      setBots(currentBots => currentBots.map(bot => {
+        const isStunned = bot.stunnedUntil && Date.now() < bot.stunnedUntil;
+        if (isStunned || !bot.isFishing || bot.state === 'fainted' || bot.health < BOT_FISHING_HEALTH_COST) {
+          return bot;
+        }
+
+        // Deduct health for fishing
+        const newHealth = Math.max(0, bot.health - BOT_FISHING_HEALTH_COST);
+        let newState: Bot['state'] = 'healthy';
+        if (newHealth <= 20) newState = 'weak';
+        else if (newHealth <= 50) newState = 'tired';
+        else if (newHealth <= 80) newState = 'caution';
+
+        // Auto-catching fish logic
+        if (Math.random() < 0.5) { // 50% chance for bot to catch something
+          const randomFish = ALL_ITEMS.filter(i => i.type === 'Fish')[Math.floor(Math.random() * 5)];
+          bot.inventory.push({
+            ...randomFish,
+            instanceId: crypto.randomUUID(),
+            edible: true,
+            energyValue: randomFish.rarity === 'Rare' ? 40 : 20
+          });
+        }
+
+        return {
+          ...bot,
+          health: newHealth,
+          state: newState,
+          lastFishedTime: Date.now()
+        };
+      }));
+    }, 10000); // Every 10 seconds
+
+    return () => clearInterval(botFishingInterval);
+  }, []);
+
+  // Override existing disruptive actions to use health system
+
+  // Updated electric shock with health damage
+  const useElectricShockWithHealth = useCallback((targetBotId: number) => {
+    if (player.shockDevices <= 0) {
+      addLog("You don't have any shock devices!");
+      return;
+    }
+
+    const targetBot = bots.find(b => b.id === targetBotId);
+    if (!targetBot) return;
+
+    if (targetBot.stunnedUntil && Date.now() < targetBot.stunnedUntil) {
+      addLog(`${targetBot.name} is already stunned!`);
+      return;
+    }
+
+    // Apply health damage
+    applyDamageToBot(targetBotId, SHOCK_BOT_DAMAGE, 'shock');
+
+    setPlayer(prev => ({
+      ...prev,
+      shockDevices: prev.shockDevices - 1,
+      reputation: Math.max(0, prev.reputation - 5),
+      disruptiveActions: {
+        ...prev.disruptiveActions,
+        shocks: prev.disruptiveActions.steals + 1
+      }
+    }));
+
+    setBots(prevBots => prevBots.map(bot =>
+      bot.id === targetBotId
+        ? { ...bot, stunnedUntil: Date.now() + SHOCK_STUN_DURATION_MS, isFishing: false }
+        : bot
+    ));
+
+    addLog(`⚡ You zapped ${targetBot.name}! (-5 Reputation)`);
+
+    if (Math.random() < SHOCK_CAUGHT_CHANCE) {
+      addLog(`🚨 The Lake Warden caught you! You were fined ${SHOCK_FINE}g!`);
+      applyPenalty(SHOCK_FINE, 'shock');
+    }
+
+    updateQuestProgress('use_shock');
+  }, [player.shockDevices, bots, player.reputation, addLog, applyPenalty, updateQuestProgress, applyDamageToBot]);
+
+  // Updated bomb system with area damage
+  const throwBombAtBotWithHealth = useCallback((botId: number) => {
+    if (player.money < LAKE_BOMB_COST) {
+      addLog("Not enough gold for a lake bomb!");
+      return;
+    }
+
+    // Area damage effect on nearby bots
+    bots.forEach(bot => {
+      const distance = Math.random() * 100; // Simulate distance
+      if (distance < 50) { // Bots within range
+        const baseDamage = BOMB_BOT_DAMAGE_AREA_BASE;
+        const pollutionMultiplier = player.pollutionLevel > 50 ? BOMB_BOT_DAMAGE_POLLUTION_MULTIPLIER : 1;
+        applyDamageToBot(bot.id, baseDamage * pollutionMultiplier, 'bomb');
+      }
+    });
+
+    setPlayer(prev => ({
+      ...prev,
+      money: prev.money - LAKE_BOMB_COST,
+      reputation: Math.max(0, prev.reputation - 15),
+      disruptiveActions: {
+        ...prev.disruptiveActions,
+        explosions: prev.disruptiveActions.explosions + 1
+      }
+    }));
+
+    addLog(`💥 Lake bomb detonated! All nearby bots damaged. (-15 Reputation, -${LAKE_BOMB_COST}g)`);
+
+    // Risk system for explosions
+    if (Math.random() < 0.7) { // 70% chance of getting caught
+      applyPenalty(LAKE_ALARM_DEBT_PENALTY, 'explode');
+      addLog(`🚨 The explosion drew attention! Alarm triggered, +${LAKE_ALARM_DEBT_PENALTY}g debt!`);
+    }
+  }, [bots, player.money, player.pollutionLevel, addLog, applyPenalty, applyDamageToBot]);
+
+  // New chemical dumping system
+  const dumpChemicalAtBot = useCallback((botId: number) => {
+    if (player.money < CHEMICAL_BOTTLE_COST) {
+      addLog("Not enough gold for a chemical bottle!");
+      return;
+    }
+
+    // Target specific bot
+    applyDamageToBot(botId, 0, 'chemical'); // Initial damage
+
+    // Set up periodic damage
+    const damageInterval = setInterval(() => {
+      applyDamageToBot(botId, CHEMICAL_BOT_DAMAGE_PER_PERIOD, 'chemical');
+    }, BOT_CHEMICAL_DAMAGE_DELAY_MINUTES * 60 * 1000); // Damage every 5 minutes
+
+    // Stop damage after some time
+    setTimeout(() => {
+      clearInterval(damageInterval);
+    }, 4 * 60 * 60 * 1000); // 4 hours
+
+    setPlayer(prev => ({
+      ...prev,
+      money: prev.money - CHEMICAL_BOTTLE_COST,
+      reputation: Math.max(0, prev.reputation - 10),
+      pollutionLevel: prev.pollutionLevel + 10,
+      disruptiveActions: {
+        ...prev.disruptiveActions,
+        chemicals: prev.disruptiveActions.chemicals + 1
+      }
+    }));
+
+    const targetBot = bots.find(b => b.id === botId);
+    addLog(`🧪 Dumped chemicals near ${targetBot?.name}! They'll suffer periodic damage. (-10 Reputation, +10 Pollution, -${CHEMICAL_BOTTLE_COST}g)`);
+  }, [bots, player.money, addLog, applyDamageToBot]);
+
+  // Enhanced care system for bots
+  const careBotWithHealth = useCallback((instanceId: string, targetBotId: number) => {
+    const fish = player.inventory.find(item => item.instanceId === instanceId);
+    if (!fish || !fish.edible || !fish.energyValue) {
+      addLog("That item isn't edible enough to share!");
+      return;
+    }
+
+    const targetBot = bots.find(b => b.id === targetBotId);
+    if (!targetBot) return;
+
+    // Remove fish from player inventory
+    setPlayer(prev => ({
+      ...prev,
+      inventory: prev.inventory.filter(item => item.instanceId !== instanceId),
+      reputation: Math.min(100, prev.reputation + BOT_CARE_REPUTATION_MULTIPLIER),
+      energy: Math.min(prev.maxEnergy, prev.energy + BOT_SHARE_ENERGY_BONUS),
+      pollutionLevel: Math.max(0, prev.pollutionLevel - BOT_CARE_POLLUTION_REDUCTION),
+      debt: prev.inDebt ? Math.max(0, prev.debt - (prev.debt * BOT_SHARE_DEBT_REDUCTION_PERCENT / 100)) : prev.debt
+    }));
+
+    // Heal the bot
+    setBots(prevBots => prevBots.map(bot => {
+      if (bot.id !== targetBotId) return bot;
+
+      const healAmount = Math.min(BOT_MAX_HEALTH - bot.health, BOT_EAT_RESTORE_HEALTH * (fish.energyValue! / 20));
+      const newHealth = Math.min(BOT_MAX_HEALTH, bot.health + healAmount);
+
+      let newState: Bot['state'] = 'healthy';
+      if (newHealth <= 20) newState = 'weak';
+      else if (newHealth <= 50) newState = 'tired';
+      else if (newHealth <= 80) newState = 'caution';
+
+      addLog(`🍽️ ${bot.name} ate your ${fish.name}! Health: ${bot.health}/${BOT_MAX_HEALTH} → ${newHealth}/${BOT_MAX_HEALTH} (+${Math.floor(healAmount)})`);
+
+      return {
+        ...bot,
+        health: newHealth,
+        state: newState,
+        inventory: [
+          ...bot.inventory,
+          {
+            ...fish,
+            instanceId: crypto.randomUUID(),
+            edible: true,
+            energyValue: fish.energyValue
+          }
+        ]
+      };
+    }));
+
+    addLog(`🎁 Shared ${fish.name} with ${targetBot?.name}! (+${BOT_CARE_REPUTATION_MULTIPLIER} Reputation, +${BOT_SHARE_ENERGY_BONUS} Energy)`);
+    if (player.pollutionLevel > BOT_CARE_POLLUTION_REDUCTION) {
+      addLog(`♻️ Your kindness to the fishers helped clean the lake! (-${BOT_CARE_POLLUTION_REDUCTION} Pollution)`);
+    }
+  }, [player, bots, addLog]);
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
@@ -946,7 +1265,10 @@ export const useGameLogic = () => {
     acknowledgeCatch,
     bots,
     buyShockDevice,
-    useElectricShock: useElectricShockQuestWithDebt,
+    useElectricShock: useElectricShockWithHealth,
+    throwBombAtBot: throwBombAtBotWithHealth,
+    dumpChemicalAtBot,
+    careBotWithHealth,
     equipRod,
     equipBait,
     buyRod,
@@ -964,8 +1286,7 @@ export const useGameLogic = () => {
     debtPayAmount,
     setDebtPayAmount,
     eatFish,
-    throwBombAtBot,
     craftItem,
-    shareFish
+    shareFish: careBotWithHealth // Updated to use health system
   };
 };

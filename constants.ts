@@ -107,10 +107,10 @@ export const INITIAL_PLAYER_STATE: Player = {
 };
 
 export const BOTS: Bot[] = [
-    { id: 1, name: 'Angler_Andy', position: { top: '20%', left: '15%' }, isFishing: true },
-    { id: 2, name: 'Fisher_Fiona', position: { top: '30%', left: '80%' }, isFishing: false },
-    { id: 3, name: 'Reel_Rachel', position: { top: '70%', left: '10%' }, isFishing: true },
-    { id: 4, name: 'Caster_Carl', position: { top: '80%', left: '75%' }, isFishing: true },
+    { id: 1, name: 'Angler_Andy', position: { top: '20%', left: '15%' }, isFishing: true, health: 85, maxHealth: 100, state: 'healthy' as const, inventory: [], lastRegenTime: Date.now(), lastFishedTime: 0 },
+    { id: 2, name: 'Fisher_Fiona', position: { top: '30%', left: '80%' }, isFishing: false, health: 92, maxHealth: 100, state: 'healthy' as const, inventory: [], lastRegenTime: Date.now(), lastFishedTime: 0 },
+    { id: 3, name: 'Reel_Rachel', position: { top: '70%', left: '10%' }, isFishing: true, health: 78, maxHealth: 100, state: 'healthy' as const, inventory: [], lastRegenTime: Date.now(), lastFishedTime: 0 },
+    { id: 4, name: 'Caster_Carl', position: { top: '80%', left: '75%' }, isFishing: true, health: 98, maxHealth: 100, state: 'healthy' as const, inventory: [], lastRegenTime: Date.now(), lastFishedTime: 0 },
 ];
 
 export const XP_PER_LEVEL = 100;
@@ -244,3 +244,37 @@ export const STEAL_SUCCESS_DURATION_MS = 10000; // 10s stealth mini-game
 export const EXPLOSION_DURATION_MS_MIN = 30000; // 30s min
 export const EXPLOSION_DURATION_MS_MAX = 120000; // 2min max
 export const CHEMICAL_DURATION_HOURS = 4;
+
+// Bot Health Constants
+export const BOT_MAX_HEALTH = 100;
+export const BOT_REGEN_RATE_PER_30_SEC = 1; // Regen per 30 seconds inactive
+export const BOT_FISHING_HEALTH_COST = 5; // Health cost per fishing action
+export const BOT_AUTO_FISH_HEALTH_COST = 10; // Health cost for catching fish automatically
+export const BOT_EAT_RESTORE_HEALTH = 20; // Health restored when bot eats fish
+export const BOT_CHEMICAL_DAMAGE_DELAY_MINUTES = 5;
+export const BOT_FAINTED_DURATION_MS = 600000; // 10 minutes
+export const BOT_FAINTED_RESET_HEALTH = 20; // Reset health after fainting
+export const BOT_CARE_REPUTATION_MULTIPLIER = 20; // Friendship boost when helping bot
+export const BOT_SHARE_ENERGY_BONUS = 10; // Player energy bonus for helping bot
+export const BOT_REVENGE_CHANCE = 0.1; // 10% chance for revenge
+export const BOT_REVENGE_DAMAGE = 5; // Energy cost to player when revenge triggered
+export const BOT_LAKE_UPSET_POLLUTION_BONUS = 20; // Pollution increase during lake upset
+
+// Damage Constants
+export const SHOCK_BOT_DAMAGE = 5; // Base shock damage to bot
+export const BOMB_BOT_DAMAGE_AREA_BASE = 15; // Base bomb damage to bots in area
+export const BOMB_BOT_DAMAGE_POLLUTION_MULTIPLIER = 1.5; // Extra damage if high pollution
+export const CHEMICAL_BOT_DAMAGE_PER_PERIOD = 5; // Damage per 5 minutes in chemical area
+
+// Overuse Damage Multiplier
+export const DAMAGE_OVERUSE_MULTIPLIER = 1.5; // +50% damage after 3 actions/hour
+export const OVERUSE_LIMIT_PER_HOUR = 3; // Actions before overuse
+
+// Alarm System Constants
+export const LAKE_ALARM_DAMAGE_THRESHOLD = 100; // Total damage in an hour triggers alarm
+export const LAKE_ALARM_DEBT_PENALTY = 100; // Gold debt penalty for alarm
+export const LAKE_ALARM_DISCOVERY_INCREASE = 50; // % increase in detection chance
+
+// Care Bonus Constants
+export const BOT_CARE_POLLUTION_REDUCTION = 5; // Pollution reduction when caring for bots
+export const BOT_SHARE_DEBT_REDUCTION_PERCENT = 10; // % debt reduction when helping bots
