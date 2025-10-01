@@ -29,6 +29,8 @@ export interface Item {
 
 export interface InventoryItem extends Item {
   instanceId: string;
+  edible: boolean; // Can this fish be eaten for energy?
+  energyValue?: number; // How much energy it restores
 }
 
 export interface Player {

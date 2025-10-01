@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { useSoundManager } from './components/SoundManager';
 import { SoundManagerProvider } from './components/SoundManager';
-import { GameStatus, ItemType } from './types';
+import { GameStatus, ItemType, Item } from './types';
 import { CoinIcon, LevelIcon, FishIcon, ZapIcon } from './components/Icons';
 import { RARITY_COLORS, SHOCK_DEVICE_COST } from './constants';
 import FishingMinigame from './components/FishingMinigame';
@@ -15,7 +15,7 @@ import Crafting from './components/Crafting';
 import './styles/animations.css';
 
 const App: React.FC = () => {
-  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward, applyPenalty, calculateDebtInterest, applyDebtTax, repayDebt, debtPayAmount, setDebtPayAmount } = useGameLogic();
+  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward, applyPenalty, calculateDebtInterest, applyDebtTax, repayDebt, debtPayAmount, setDebtPayAmount, eatFish, throwBombAtBot, shareFish } = useGameLogic();
   const { playSound } = useSoundManager();
   const [activeTab, setActiveTab] = useState<'log' | 'actions' | 'shop' | 'quests' | 'leaderboard' | 'crafting'>('log');
   const [showTutorial, setShowTutorial] = useState(!localStorage.getItem('tutorialCompleted'));
@@ -155,11 +155,36 @@ const App: React.FC = () => {
                 <div>
                   <p className={`font-semibold ${RARITY_COLORS[item.rarity]}`}>{item.name}</p>
                   <p className="text-xs text-gray-400">{item.description}</p>
+                  {item.energyValue && (
+                    <p className="text-xs text-green-400">🍽️ Restore +{item.energyValue} energy</p>
+                  )}
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right flex flex-col gap-1">
                  <p className="text-yellow-400 font-semibold">{item.value}g</p>
-                 <button onClick={() => sellItem(item.instanceId)} className="text-xs text-red-400 hover:text-red-300">Sell</button>
+                 <div className="flex gap-1">
+                   {item.edible && player.energy < player.maxEnergy && (
+                     <button
+                       onClick={() => eatFish(item.instanceId)}
+                       className="text-xs bg-green-600 hover:bg-green-700 px-2 py-1 rounded"
+                       disabled={player.energy >= player.maxEnergy}
+                     >
+                       Eat
+                     </button>
+                   )}
+                   <button
+                     onClick={() => shareFish(item.instanceId, Math.floor(Math.random() * bots.length) + 1)}
+                     className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded"
+                   >
+                     Share
+                   </button>
+                   <button
+                     onClick={() => sellItem(item.instanceId)}
+                     className="text-xs bg-red-600 hover:bg-red-700 px-2 py-1 rounded"
+                   >
+                     Sell
+                   </button>
+                 </div>
               </div>
             </div>
           ))
@@ -326,7 +351,7 @@ const App: React.FC = () => {
         <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
 
         <div className="relative grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8 max-w-screen-2xl mx-auto h-[calc(100vh-4rem)]">
-          <div className="lg:col-span-1 flex flex-col h-full">
+          <div className="lg:col-span-1 flex flex-col h-full overflow-auto">
             <PlayerInfoPanel/>
             <InventoryPanel/>
           </div>
@@ -484,21 +509,48 @@ const App: React.FC = () => {
 
         <Modal isOpen={status === GameStatus.Caught} onClose={acknowledgeCatch}>
             <div className="text-center p-4">
-                {lastCaughtItem ? (
-                    lastCaughtItem?.type === ItemType.Bomb ? (
+                {lastCaughtItem && (lastCaughtItem.type === ItemType.Bomb || lastCaughtItem.type === 'Bomb') ? (
+                    <>
+                        <h2 className="text-2xl font-bold text-red-500 mb-2">💣 Throw the Bomb!</h2>
+                        <div className="mx-auto my-4 text-5xl">{lastCaughtItem.icon}</div>
+                        <p className="text-lg mb-4">You caught <span className="font-semibold text-red-400">{lastCaughtItem.name}</span>!</p>
+                        <p className="text-sm text-orange-300 mb-4">Choose who to throw it at (they'll be stunned for 15 seconds):</p>
+                        <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                            {bots.map(bot => (
+                                <button
+                                    key={bot.id}
+                                    className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded text-sm transition-colors"
+                                    onClick={() => {
+                                        throwBombAtBot(bot.id);
+                                        acknowledgeCatch();
+                                    }}
+                                >
+                                    Throw at {bot.name}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={acknowledgeCatch}
+                            className="mt-4 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+                        >
+                            Don't Throw (Discard Bomb)
+                        </button>
+                    </>
+                ) : lastCaughtItem ? (
+                    lastCaughtItem.type === ItemType.Bomb ? (
                         <>
                             <h2 className="text-2xl font-bold text-red-500 mb-2">BOOM!</h2>
-                            <div className="mx-auto my-4 text-5xl">{lastCaughtItem?.icon}</div>
-                            <p className="text-lg">You caught a <span className="font-semibold">{lastCaughtItem?.name}</span> and it exploded!</p>
-                            <p className="text-gray-400 mt-1">{lastCaughtItem?.description}</p>
+                            <div className="mx-auto my-4 text-5xl">{lastCaughtItem.icon}</div>
+                            <p className="text-lg">You caught a <span className="font-semibold">{lastCaughtItem.name}</span> and it exploded!</p>
+                            <p className="text-gray-400 mt-1">{lastCaughtItem.description}</p>
                         </>
                     ) : (
                         <>
                             <h2 className="text-2xl font-bold text-green-400 mb-2">You Caught Something!</h2>
-                            <div className={`mx-auto my-4 text-6xl ${RARITY_COLORS[lastCaughtItem?.rarity || 'Common']}`}>{lastCaughtItem?.icon}</div>
-                            <p className="text-xl">It's a <span className={`font-semibold ${RARITY_COLORS[lastCaughtItem?.rarity || 'Common']}`}>{lastCaughtItem?.name}</span>!</p>
-                            <p className="text-gray-400 mt-1">{lastCaughtItem?.description}</p>
-                            <p className="mt-4 text-yellow-400 text-lg font-bold">Value: {lastCaughtItem?.value}g</p>
+                            <div className={`mx-auto my-4 text-6xl ${RARITY_COLORS[lastCaughtItem.rarity || 'Common']}`}>{lastCaughtItem.icon}</div>
+                            <p className="text-xl">It's a <span className={`font-semibold ${RARITY_COLORS[lastCaughtItem.rarity || 'Common']}`}>{lastCaughtItem.name}</span>!</p>
+                            <p className="text-gray-400 mt-1">{lastCaughtItem.description}</p>
+                            <p className="mt-4 text-yellow-400 text-lg font-bold">Value: {lastCaughtItem.value}g</p>
                         </>
                     )
                 ) : (
@@ -509,12 +561,14 @@ const App: React.FC = () => {
                         <p className="text-gray-400 mt-1">Better luck next time!</p>
                     </>
                 )}
-                <button
-                    onClick={acknowledgeCatch}
-                    className="mt-6 w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded transition-transform duration-200 transform hover:scale-105"
-                >
-                    {lastCaughtItem ? 'Awesome!' : 'Try Again'}
-                </button>
+                {lastCaughtItem && !(lastCaughtItem.type === ItemType.Bomb || lastCaughtItem.type === 'Bomb') && (
+                    <button
+                        onClick={acknowledgeCatch}
+                        className="mt-6 w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded transition-transform duration-200 transform hover:scale-105"
+                    >
+                        Awesome!
+                    </button>
+                )}
             </div>
         </Modal>
 

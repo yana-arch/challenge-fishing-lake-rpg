@@ -158,8 +158,12 @@ export const useGameLogic = () => {
       setLastCaughtItem(newInventoryItem);
 
       if (itemOnLine.type === 'Bomb') {
-          addLog(`💥 You caught a ${itemOnLine.name}! It exploded!`);
-          // This is where you would add screen shake or other effects
+          // Set special status for bomb - will show target selection screen
+          // Pass the bomb item back to App for modal display
+          setLastCaughtItem(itemOnLine);
+          setStatus(GameStatus.Caught);
+          setItemOnLine(null);
+          return; // Don't add bomb to inventory or proceed normally
       } else {
            addLog(`You caught a ${itemOnLine.name}!`);
       }
@@ -167,6 +171,17 @@ export const useGameLogic = () => {
       setPlayer(prev => {
         const newXp = prev.xp + itemOnLine.value;
         const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
+        const newInventoryItem: InventoryItem = {
+          ...itemOnLine,
+          instanceId: crypto.randomUUID(),
+          edible: itemOnLine.type === 'Fish',
+          energyValue: itemOnLine.type === 'Fish' ?
+            (itemOnLine.rarity === 'Common' ? 15 :
+             itemOnLine.rarity === 'Uncommon' ? 25 :
+             itemOnLine.rarity === 'Rare' ? 40 :
+             itemOnLine.rarity === 'Epic' ? 60 :
+             itemOnLine.rarity === 'Legendary' ? 100 : 10) : undefined
+        };
         const newInventory = [...prev.inventory, newInventoryItem];
         // Pollution increases when catching junk/trash
         const pollutionIncrease = itemOnLine.type === 'Junk' ? 1 : 0;
@@ -330,7 +345,17 @@ export const useGameLogic = () => {
         // Successful dive - get rare items
         const rareItems = ALL_ITEMS.filter(item => item.rarity === 'Rare' || item.rarity === 'Epic');
         const randomRareItem = rareItems[Math.floor(Math.random() * rareItems.length)];
-        const newInventoryItem: InventoryItem = { ...randomRareItem, instanceId: crypto.randomUUID() };
+        const newInventoryItem: InventoryItem = {
+          ...randomRareItem,
+          instanceId: crypto.randomUUID(),
+          edible: randomRareItem.type === 'Fish',
+          energyValue: randomRareItem.type === 'Fish' ?
+            (randomRareItem.rarity === 'Common' ? 15 :
+             randomRareItem.rarity === 'Uncommon' ? 25 :
+             randomRareItem.rarity === 'Rare' ? 40 :
+             randomRareItem.rarity === 'Epic' ? 60 :
+             randomRareItem.rarity === 'Legendary' ? 100 : 10) : undefined
+        };
 
         setLastCaughtItem(newInventoryItem);
         setPlayer(prev => {
@@ -351,7 +376,17 @@ export const useGameLogic = () => {
       // Successfully defended - get bonus item
       const rareItems = ALL_ITEMS.filter(item => item.rarity === 'Uncommon' || item.rarity === 'Rare');
       const randomItem = rareItems[Math.floor(Math.random() * rareItems.length)];
-      const newInventoryItem: InventoryItem = { ...randomItem, instanceId: crypto.randomUUID() };
+      const newInventoryItem: InventoryItem = {
+        ...randomItem,
+        instanceId: crypto.randomUUID(),
+        edible: randomItem.type === 'Fish',
+        energyValue: randomItem.type === 'Fish' ?
+          (randomItem.rarity === 'Common' ? 15 :
+           randomItem.rarity === 'Uncommon' ? 25 :
+           randomItem.rarity === 'Rare' ? 40 :
+           randomItem.rarity === 'Epic' ? 60 :
+           randomItem.rarity === 'Legendary' ? 100 : 10) : undefined
+      };
 
       setLastCaughtItem(newInventoryItem);
       setPlayer(prev => {
@@ -411,7 +446,17 @@ export const useGameLogic = () => {
       const pollutionEffect = getPollutionEffect(player.pollutionLevel);
       const trashItems = pollutionEffect.trashItems.flatMap(itemId => ALL_ITEMS.filter(item => item.id === itemId));
       const foundTrash = trashItems[Math.floor(Math.random() * trashItems.length)] || ALL_ITEMS.find(item => item.id === 'junk_2')!;
-      const newInventoryItem: InventoryItem = { ...foundTrash, instanceId: crypto.randomUUID() };
+      const newInventoryItem: InventoryItem = {
+        ...foundTrash,
+        instanceId: crypto.randomUUID(),
+        edible: foundTrash.type === 'Fish',
+        energyValue: foundTrash.type === 'Fish' ?
+          (foundTrash.rarity === 'Common' ? 15 :
+           foundTrash.rarity === 'Uncommon' ? 25 :
+           foundTrash.rarity === 'Rare' ? 40 :
+           foundTrash.rarity === 'Epic' ? 60 :
+           foundTrash.rarity === 'Legendary' ? 100 : 10) : undefined
+      };
 
       setLastCaughtItem(newInventoryItem);
       setPlayer(prev => {
@@ -579,19 +624,109 @@ export const useGameLogic = () => {
     });
   }, [player.money, addLog]);
 
-  // Calculate debt interest on load
-  useEffect(() => {
-    calculateDebtInterest();
-    // Apply daily debt tax
-    applyDebtTax();
+  // Eating fish system
+  const eatFish = useCallback((instanceId: string) => {
+    if (player.energy >= player.maxEnergy) {
+      addLog("You're full! No need to eat more.");
+      return;
+    }
 
-    // Set up daily interest check
+    const fish = player.inventory.find(item => item.instanceId === instanceId);
+    if (!fish || !fish.edible || !fish.energyValue) {
+      addLog("That item isn't edible!");
+      return;
+    }
+
+    setPlayer(prev => {
+      const newEnergy = Math.min(prev.maxEnergy, prev.energy + fish.energyValue!);
+      const newInventory = prev.inventory.filter(item => item.instanceId !== instanceId);
+
+      addLog(`🍽️ Ate ${fish.name}! +${fish.energyValue} energy`);
+
+      return {
+        ...prev,
+        energy: newEnergy,
+        inventory: newInventory,
+      };
+    });
+  }, [player, addLog]);
+
+  // Throw bomb at bot system
+  const throwBombAtBot = useCallback((botId: number) => {
+    setBots(prevBots => prevBots.map(bot =>
+      bot.id === botId
+        ? { ...bot, stunnedUntil: Date.now() + 15000, isFishing: false }
+        : bot
+    ));
+    addLog(`💥 Bomb thrown at bot ${botId}! They're stunned for 15 seconds!`);
+  }, [addLog]);
+
+  // Simple share fish system (prototype)
+  const shareFish = useCallback((instanceId: string, targetBotId: number) => {
+    const fish = player.inventory.find(item => item.instanceId === instanceId);
+    if (!fish) return;
+
+    const targetBot = bots.find(b => b.id === targetBotId);
+    if (!targetBot) return;
+
+    setPlayer(prev => ({
+      ...prev,
+      reputation: Math.min(100, prev.reputation + (fish.rarity === 'Rare' ? 10 : 5)),
+    }));
+
+    addLog(`🎁 Shared ${fish.name} with ${targetBot.name}. +${fish.rarity === 'Rare' ? 10 : 5} reputation!`);
+  }, [player, bots, addLog]);
+
+  // Calculate debt interest on load (stable without callback dependencies)
+  useEffect(() => {
+    // Only run if player data is available
+    if (player.inDebt) {
+      const daysPassed = Math.max(0, (Date.now() - player.lastLogin) / (1000 * 60 * 60 * 24));
+      if (daysPassed > 0.01) {
+        const interestAmount = Math.floor(player.debt * player.debtInterestRate * Math.min(daysPassed, 7));
+        if (interestAmount > 0) {
+          setPlayer(prev => ({
+            ...prev,
+            debt: Math.min(5000, prev.debt + interestAmount),
+            lastLogin: Date.now(),
+          }));
+          addLog(`📈 Debt interest accrued: +${interestAmount}g`);
+        }
+      }
+
+      // Apply debt tax
+      const taxAmount = Math.floor(player.debt * 0.10);
+      if (taxAmount > 0) {
+        setPlayer(prev => {
+          const actualTax = Math.min(taxAmount, prev.money);
+          if (actualTax > 0) {
+            addLog(`💰 Debt tax applied: -${actualTax}g`);
+            return { ...prev, money: prev.money - actualTax };
+          }
+          return prev;
+        });
+      }
+    }
+
+    // Set up daily interest check (every 24 hours)
     const dailyInterval = setInterval(() => {
-      calculateDebtInterest();
-    }, 24 * 60 * 60 * 1000); // Every 24 hours
+      if (player.inDebt && player.debt > 0) {
+        const interestAmount = Math.floor(player.debt * player.debtInterestRate);
+        if (interestAmount > 0) {
+          setPlayer(prev => ({
+            ...prev,
+            debt: Math.min(5000, prev.debt + interestAmount),
+          }));
+          // Only log if tab is active to avoid spam
+          if (!document.hidden) {
+            addLog(`📈 Daily debt interest: +${interestAmount}g`);
+          }
+        }
+      }
+    }, 24 * 60 * 60 * 1000);
 
     return () => clearInterval(dailyInterval);
-  }, [calculateDebtInterest, applyDebtTax]);
+  }, [player.inDebt, player.debt, player.lastLogin, player.debtInterestRate, player.money, addLog]); // Use direct player state deps instead of callbacks
 
   // Override useElectricShock to use new penalty system
   const useElectricShockQuestWithDebt = useCallback((targetBotId: number) => {
@@ -667,6 +802,9 @@ export const useGameLogic = () => {
     applyDebtTax,
     repayDebt,
     debtPayAmount,
-    setDebtPayAmount
+    setDebtPayAmount,
+    eatFish,
+    throwBombAtBot,
+    shareFish
   };
 };
