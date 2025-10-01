@@ -94,6 +94,7 @@ export const INITIAL_PLAYER_STATE: Player = {
   energy: 100,
   maxEnergy: 100,
   pollutionCleaned: 0,
+  pollutionLevel: 0,
 };
 
 export const BOTS: Bot[] = [
@@ -215,3 +216,10 @@ export const ENERGY_COST_DIVING = 15;
 export const ENERGY_COST_CLEANING = 10;
 export const ENERGY_REGEN_RATE = 2; // per minute
 export const CLEAN_LAKE_REPUTATION_BONUS = 10;
+
+// Pollution Constants
+export const getPollutionEffect = (pollutionLevel: number) => {
+  if (pollutionLevel >= 50) return POLLUTION_EFFECTS[2]; // High
+  if (pollutionLevel >= 25) return POLLUTION_EFFECTS[1]; // Medium
+  return POLLUTION_EFFECTS[0]; // Low
+};

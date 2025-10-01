@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Player, GameStatus, Item, InventoryItem, Bot, Rod, Bait, DangerType } from '../types';
-import { ALL_ITEMS, INITIAL_PLAYER_STATE, XP_PER_LEVEL, RARITY_WEIGHTS, BOTS, SHOCK_DEVICE_COST, SHOCK_STUN_DURATION_MS, SHOCK_CAUGHT_CHANCE, SHOCK_FINE, ALL_RODS, ALL_BAITS, ENERGY_COST_FISHING, ENERGY_COST_DIVING, ENERGY_COST_CLEANING, ENERGY_REGEN_RATE } from '../constants';
+import { ALL_ITEMS, INITIAL_PLAYER_STATE, XP_PER_LEVEL, RARITY_WEIGHTS, BOTS, SHOCK_DEVICE_COST, SHOCK_STUN_DURATION_MS, SHOCK_CAUGHT_CHANCE, SHOCK_FINE, ALL_RODS, ALL_BAITS, ENERGY_COST_FISHING, ENERGY_COST_DIVING, ENERGY_COST_CLEANING, ENERGY_REGEN_RATE, getPollutionEffect } from '../constants';
 
 const SAVE_KEY = 'challengeFishingLakeSave';
 
@@ -96,6 +96,16 @@ export const useGameLogic = () => {
       });
     }
 
+    // Apply pollution penalty
+    const pollutionEffect = getPollutionEffect(player.pollutionLevel);
+    const penalty = pollutionEffect.fishingPenalty / 100; // Convert percentage to decimal
+    Object.keys(adjustedWeights).forEach(rarity => {
+      const rarityKey = rarity as keyof typeof RARITY_WEIGHTS;
+      // Penalty affects rare items more, encouraging cleaning
+      const penaltyMultiplier = penalty * (rarity === 'Legendary' ? 2 : rarity === 'Epic' ? 1.5 : rarity === 'Rare' ? 1.2 : 1);
+      adjustedWeights[rarityKey] = Math.max(1, Math.floor(adjustedWeights[rarityKey] * (1 - penaltyMultiplier)));
+    });
+
     const totalWeight = Object.values(adjustedWeights).reduce((sum, weight) => sum + weight, 0);
     let random = Math.random() * totalWeight;
 
@@ -152,18 +162,20 @@ export const useGameLogic = () => {
       } else {
            addLog(`You caught a ${itemOnLine.name}!`);
       }
-     
+
       setPlayer(prev => {
         const newXp = prev.xp + itemOnLine.value;
         const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
         const newInventory = [...prev.inventory, newInventoryItem];
-        return { ...prev, xp: newXp, level: newLevel, inventory: newInventory };
+        // Pollution increases when catching junk/trash
+        const pollutionIncrease = itemOnLine.type === 'Junk' ? 1 : 0;
+        return { ...prev, xp: newXp, level: newLevel, inventory: newInventory, pollutionLevel: prev.pollutionLevel + pollutionIncrease };
       });
     } else {
       setLastCaughtItem(null);
       addLog('The catch got away...');
     }
-    
+
     setStatus(GameStatus.Caught);
     setItemOnLine(null);
   }, [itemOnLine, addLog]);
@@ -389,33 +401,38 @@ export const useGameLogic = () => {
     setStatus(GameStatus.CleaningLake);
     addLog('🧽 You start cleaning the lake...');
 
-    // Cleaning time based on pollution level (simplified - normally would be dynamic)
-    const cleanTime = 10000; // 10 seconds for demo
+    // Cleaning time based on pollution level
+    const pollutionEffect = getPollutionEffect(player.pollutionLevel);
+    const cleanTime = pollutionEffect.cleanupTime * 1000; // Convert to milliseconds
 
     timeoutRef.current = setTimeout(() => {
-      // Chance to find trash item
-      const trashItems = ALL_ITEMS.filter(item => item.type === 'Junk');
-      const foundTrash = trashItems[Math.floor(Math.random() * trashItems.length)];
+      // Chance to find trash item based on pollution level
+      const pollutionEffect = getPollutionEffect(player.pollutionLevel);
+      const trashItems = pollutionEffect.trashItems.flatMap(itemId => ALL_ITEMS.filter(item => item.id === itemId));
+      const foundTrash = trashItems[Math.floor(Math.random() * trashItems.length)] || ALL_ITEMS.find(item => item.id === 'junk_2')!;
       const newInventoryItem: InventoryItem = { ...foundTrash, instanceId: crypto.randomUUID() };
 
       setLastCaughtItem(newInventoryItem);
       setPlayer(prev => {
         const newXp = prev.xp + 10; // XP for cleaning
         const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
+        // Cleaning reduces pollution
+        const pollutionDecrease = Math.min(1, prev.pollutionLevel);
         return {
           ...prev,
           xp: newXp,
           level: newLevel,
           inventory: [...prev.inventory, newInventoryItem],
           pollutionCleaned: prev.pollutionCleaned + 1,
-          reputation: prev.reputation + 1
+          reputation: prev.reputation + 1,
+          pollutionLevel: Math.max(0, prev.pollutionLevel - pollutionDecrease)
         };
       });
 
       setStatus(GameStatus.Caught);
-      addLog(`🗑️ You found and cleaned up ${foundTrash.name}! (+10 XP, +1 Reputation)`);
+      addLog(`🗑️ You cleaned up ${foundTrash.name}! (-1 Pollution, +10 XP, +1 Reputation)`);
     }, cleanTime);
-  }, [status, player.energy, addLog]);
+  }, [status, player.energy, addLog, player.pollutionLevel]);
 
   // Quest functions
   const updateQuestProgress = useCallback((questType: string, progress: number = 1) => {

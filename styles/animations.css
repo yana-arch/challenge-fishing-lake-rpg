@@ -346,3 +346,132 @@
 .animate-pulse-slow {
   animation: pulse 2s ease-in-out infinite;
 }
+
+/* Advanced UI/UX optimizations for robustness */
+
+/* Text overflow handling - prevent text break and add ellipsis */
+.text-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+}
+
+/* Text truncation with tooltip support */
+.truncate-with-tooltip {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px; /* Default width, can be overridden */
+  cursor: help;
+}
+
+/* Longer text truncation for descriptions */
+.truncate-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Maximum 2 lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+/* Word break for long words only when necessary */
+.word-break-safe {
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Flexbox layout improvements */
+.flex-game-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 100vh;
+}
+
+.flex-game-content {
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-lake-area {
+  flex: 1 0 auto;
+  min-height: 400px;
+  position: relative;
+}
+
+.flex-controls-area {
+  flex: 0 0 auto;
+  padding-top: 1rem;
+}
+
+/* Responsive grid that adapts to content */
+@media (max-width: 1024px) {
+  .flex-game-content {
+    flex-direction: column;
+  }
+
+  .flex-lake-area {
+    order: 1;
+    min-height: 300px;
+  }
+
+  .flex-controls-area {
+    order: 2;
+  }
+}
+
+/* GPU acceleration for smooth animations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  -moz-transform: translateZ(0);
+  -ms-transform: translateZ(0);
+  -o-transform: translateZ(0);
+}
+
+/* Improve button responsiveness */
+.btn-responsive {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Keyboard navigation improvements */
+.focus-visible:focus-visible {
+  outline: 2px solid #06b6d1;
+  outline-offset: 2px;
+}
+
+/* Safe area adjustments for mobile devices with notches */
+@supports (padding: max(0px)) {
+  .mobile-safe-area {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
+
+/* Orientation lock for landscape phones */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  .flex-game-container {
+    height: 100vw;
+    min-height: 100vw;
+  }
+
+  .flex-lake-area {
+    min-height: 250px;
+  }
+}
+
+/* Virtual keyboard adjustments */
+.visual-viewport-adjust {
+  transition: height 0.2s ease;
+}

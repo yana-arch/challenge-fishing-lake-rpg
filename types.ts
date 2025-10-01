@@ -44,6 +44,7 @@ export interface Player {
   energy: number;
   maxEnergy: number;
   pollutionCleaned: number;
+  pollutionLevel: number;
 }
 
 export interface Rod {

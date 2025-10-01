@@ -18,7 +18,7 @@ const Shop: React.FC<ShopProps> = ({ playerMoney, onBuyRod, onBuyBait }) => {
         <h3 className="text-xl font-semibold text-yellow-400 mb-4 border-b border-gray-600 pb-2">
           🎣 Fishing Rods
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           {ALL_RODS.map((rod) => (
             <div
               key={rod.id}
@@ -71,7 +71,7 @@ const Shop: React.FC<ShopProps> = ({ playerMoney, onBuyRod, onBuyBait }) => {
         <h3 className="text-xl font-semibold text-yellow-400 mb-4 border-b border-gray-600 pb-2">
           🪱 Fishing Baits
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           {ALL_BAITS.map((bait) => (
             <div
               key={bait.id}

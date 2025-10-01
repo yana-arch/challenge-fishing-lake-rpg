@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
 import { useSoundManager } from './components/SoundManager';
 import { SoundManagerProvider } from './components/SoundManager';
@@ -18,15 +18,65 @@ const App: React.FC = () => {
   const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward } = useGameLogic();
   const { playSound } = useSoundManager();
   const [activeTab, setActiveTab] = useState<'log' | 'actions' | 'shop' | 'quests' | 'leaderboard' | 'crafting'>('log');
+  const [showTutorial, setShowTutorial] = useState(!localStorage.getItem('tutorialCompleted'));
   const xpForNextLevel = 100;
   const xpProgress = (player.xp % xpForNextLevel) / xpForNextLevel * 100;
 
+  // Dynamic height adjustment using ResizeObserver
+  useEffect(() => {
+    const updateLakeHeight = () => {
+      const playerInfo = document.getElementById('player-info-panel');
+      const controls = document.getElementById('controls-area');
+      const lake = document.getElementById('lake-view');
+
+      if (playerInfo && controls && lake) {
+        const playerHeight = playerInfo.offsetHeight;
+        const controlsHeight = controls.offsetHeight;
+        const availableHeight = window.innerHeight - playerHeight - controlsHeight - 200; // 200px margin
+        lake.style.minHeight = `${Math.max(400, availableHeight)}px`;
+      }
+    };
+
+    // Initial call
+    updateLakeHeight();
+
+    // ResizeObserver for elements
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        if (entry.target.id === 'player-info-panel' || entry.target.id === 'controls-area') {
+          updateLakeHeight();
+        }
+      }
+    });
+
+    // Observe elements
+    const playerPanel = document.getElementById('player-info-panel');
+    const controlsArea = document.getElementById('controls-area');
+    if (playerPanel) resizeObserver.observe(playerPanel);
+    if (controlsArea) resizeObserver.observe(controlsArea);
+
+    // Window resize listener
+    const handleResize = () => updateLakeHeight();
+    window.addEventListener('resize', handleResize);
+
+    // Orientation change for mobile
+    window.addEventListener('orientationchange', () => {
+      setTimeout(updateLakeHeight, 100); // Delay for orientation change
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', updateLakeHeight);
+    };
+  }, []);
+
   const PlayerInfoPanel: React.FC = () => (
-    <div className="bg-gray-800/80 backdrop-blur-sm p-4 rounded-lg shadow-lg border border-gray-700">
+    <div id="player-info-panel" className="bg-gray-800/80 backdrop-blur-sm p-4 rounded-lg shadow-lg border border-gray-700 gpu-accelerated">
       <div className="flex items-center mb-4">
         <img src={`https://picsum.photos/seed/${player.name}/80/80`} alt="avatar" className="w-16 h-16 rounded-full border-2 border-cyan-400 mr-4" />
-        <div>
-          <h2 className="text-xl font-bold text-cyan-300">{player.name}</h2>
+        <div className="truncate">
+          <h2 className="text-xl font-bold text-cyan-300 truncate-with-tooltip" title={player.name}>{player.name}</h2>
           <div className="flex items-center text-yellow-400 mt-1">
             <CoinIcon className="w-5 h-5 mr-1" />
             <span>{player.money}</span>
@@ -130,11 +180,26 @@ const App: React.FC = () => {
     </div>
   );
 
-  const LakeView: React.FC = () => (
-    <div className="relative w-full h-full bg-blue-900/50 rounded-lg overflow-hidden border-4 border-cyan-800/50 shadow-inner">
-      <div className="absolute inset-0 bg-gradient-to-b from-blue-400/20 to-blue-800/40"></div>
-      <div className="absolute top-1/4 left-1/2 w-32 h-16 bg-green-700 rounded-full -translate-x-1/2 opacity-50 blur-md"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-24 h-12 bg-green-800 rounded-full opacity-50 blur-md"></div>
+  const getPollutionEffect = (pollutionLevel: number) => {
+    if (pollutionLevel >= 50) return 'high';
+    if (pollutionLevel >= 25) return 'medium';
+    return 'low';
+  };
+
+  const LakeView: React.FC = () => {
+    const pollutionLevel = getPollutionEffect(player.pollutionLevel);
+    const pollutionOpacity = player.pollutionLevel > 0 ? 0.1 + (player.pollutionLevel / 100) * 0.4 : 0;
+    const pollutionColor = pollutionLevel === 'high' ? 'bg-red-900/50' : pollutionLevel === 'medium' ? 'bg-yellow-900/50' : 'bg-blue-900/30';
+
+    return (
+      <div id="lake-view" className="relative w-full h-full bg-blue-900/50 rounded-lg overflow-hidden border-4 border-cyan-800/50 shadow-inner gpu-accelerated">
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-400/20 to-blue-800/40"></div>
+        <div className={`absolute inset-0 ${pollutionColor}`} style={{ opacity: pollutionOpacity }}></div>
+        <div className="absolute top-1/4 left-1/2 w-32 h-16 bg-green-700 rounded-full -translate-x-1/2 opacity-50 blur-md"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-24 h-12 bg-green-800 rounded-full opacity-50 blur-md"></div>
+        <div className="absolute top-4 left-4 bg-black/50 p-2 rounded text-white text-sm">
+          Pollution: {player.pollutionLevel} ({pollutionLevel.toUpperCase()})
+        </div>
        {/* Player Avatar */}
        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-center">
             <img src={`https://picsum.photos/seed/${player.name}/80/80`} alt="player" className="w-20 h-20 rounded-full border-4 border-cyan-300 shadow-lg"/>
@@ -167,6 +232,7 @@ const App: React.FC = () => {
        )})}
     </div>
   );
+};
 
   const getButtonText = () => {
     switch(status) {
@@ -210,15 +276,15 @@ const App: React.FC = () => {
             <div className="flex-grow">
               <LakeView />
             </div>
-            <div className="flex-shrink-0 mt-4 space-y-2">
+            <div id="controls-area" className="flex-shrink-0 mt-4 space-y-2 gpu-accelerated">
                 <button
                     onClick={() => {
                       playSound('fishingCast');
                       castLine();
                     }}
                     disabled={status !== GameStatus.Idle && status !== GameStatus.Caught}
-                    className="w-full text-2xl font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out transform disabled:cursor-not-allowed
-                    bg-cyan-600 text-white shadow-lg
+                    className="w-full text-2xl font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out transform disabled:cursor-not-allowed btn-responsive
+                    bg-cyan-600 text-white shadow-lg focus-visible
                     enabled:hover:bg-cyan-500 enabled:hover:scale-105
                     disabled:bg-gray-600 disabled:text-gray-400"
                 >
@@ -256,7 +322,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-1 flex flex-col h-full bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
+          <div className="lg:col-span-1 flex flex-col h-full bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700 overflow-auto">
             <div className="flex-shrink-0 border-b border-gray-700 overflow-x-auto">
               <div className="flex">
                 <button
@@ -297,6 +363,47 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            <Modal isOpen={showTutorial} onClose={() => {
+              setShowTutorial(false);
+              localStorage.setItem('tutorialCompleted', 'true');
+            }}>
+              <div className="text-center p-6 max-w-md">
+                <h2 className="text-2xl font-bold text-cyan-300 mb-4">Welcome to Hồ Câu Thử Thách!</h2>
+                <div className="space-y-4 text-left text-gray-300">
+                  <div>
+                    <h3 className="font-semibold text-white mb-2">🎣 Câu Cá:</h3>
+                    <p className="text-sm">Click "Cast Line", wait, then click "Reel In" when the marker is in the green zone.</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white mb-2">🤿 Lặn:</h3>
+                    <p className="text-sm">Dive for rare items but beware of dangers!</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white mb-2">🧽 Dọn Rác:</h3>
+                    <p className="text-sm">Clean the lake to reduce pollution and catch better fish.</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white mb-2">⚡ Chích Điện:</h3>
+                    <p className="text-sm">Buy shock devices and zap other fishermen to stun them.</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white mb-2">💡 Mẹo:</h3>
+                    <p className="text-sm">Higher pollution reduces catch rates. Clean the lake to improve fishing!</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowTutorial(false);
+                    localStorage.setItem('tutorialCompleted', 'true');
+                  }}
+                  className="mt-6 w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded"
+                >
+                  Let's Go Fishing!
+                </button>
+              </div>
+            </Modal>
+
             <div className="p-4 flex-grow flex flex-col overflow-y-auto">
               {activeTab === 'log' && <GameLogPanel />}
               {activeTab === 'actions' && <ActionsPanel />}
