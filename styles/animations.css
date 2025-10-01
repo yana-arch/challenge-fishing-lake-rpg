@@ -475,3 +475,53 @@
 .visual-viewport-adjust {
   transition: height 0.2s ease;
 }
+
+/* Disruptive action animations */
+@keyframes stealthIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+.animate-stealth-in {
+  animation: stealthIn 0.3s ease-out;
+}
+
+/* Explosion animation */
+@keyframes explosion {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  10% { transform: rotate(10deg) scale(1.1); }
+  20% { transform: rotate(-10deg) scale(0.9); }
+  30% { transform: rotate(8deg) scale(1.05); }
+  40% { transform: rotate(-5deg) scale(0.95); }
+  50% { transform: rotate(0deg) scale(1); }
+}
+
+.animate-explosion {
+  animation: explosion 0.5s ease-in-out;
+}
+
+/* Chemical spread */
+@keyframes spread {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0.3; transform: scale(2); }
+}
+
+.animate-spread {
+  animation: spread 1s ease-out forwards;
+}
+
+/* Moral compass (temporary darkening) */
+@keyframes moral-darker {
+  from { filter: brightness(1); }
+  to { filter: brightness(0.7); }
+}
+
+.moral-darker {
+  animation: moral-darker 2s ease-out forwards;
+}

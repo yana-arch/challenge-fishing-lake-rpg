@@ -13,6 +13,7 @@ export const useGameLogic = () => {
   const [bots, setBots] = useState<Bot[]>(BOTS);
   const [currentDanger, setCurrentDanger] = useState<DangerType>(DangerType.Shark);
   const [questProgress, setQuestProgress] = useState<{ [questId: string]: number }>({});
+  const [debtPayAmount, setDebtPayAmount] = useState<number>(0);
 
   // FIX: Replaced NodeJS.Timeout with ReturnType<typeof setTimeout> for browser compatibility.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -484,6 +485,151 @@ export const useGameLogic = () => {
     startLakeCleaning();
   }, [startLakeCleaning, updateQuestProgress]);
 
+  // Debt system functions
+  const applyPenalty = useCallback((amount: number, type: string = 'fine') => {
+    setPlayer(prev => {
+      let newMoney = prev.money - amount;
+      let newDebt = prev.debt;
+      let newInDebt = prev.inDebt;
+
+      // If money goes negative, convert to debt
+      if (newMoney < 0) {
+        newDebt += Math.abs(newMoney);
+        newMoney = 0;
+        newInDebt = true;
+        addLog(`💸 You've gone into debt! ${Math.abs(newMoney)}g added to your debt.`);
+      }
+
+      // Apply reputation effects for disruptive actions
+      let newReputation = prev.reputation;
+      if (['steal', 'explode', 'chemical'].includes(type)) {
+        newReputation = Math.max(0, newReputation - (type === 'explode' ? 15 : 10));
+      }
+
+      return {
+        ...prev,
+        money: newMoney,
+        debt: newDebt,
+        inDebt: newInDebt,
+        reputation: newReputation,
+      };
+    });
+  }, [addLog]);
+
+  const calculateDebtInterest = useCallback(() => {
+    if (!player.inDebt || player.debt <= 0) return;
+
+    const daysPassed = Math.max(0, (Date.now() - player.lastLogin) / (1000 * 60 * 60 * 24));
+    if (daysPassed > 0.01) { // Only update if meaningful time passed
+      setPlayer(prev => {
+        const interestAmount = Math.floor(prev.debt * prev.debtInterestRate * Math.min(daysPassed, 7)); // Cap at 7 days
+        const newDebt = prev.debt + interestAmount;
+        if (interestAmount > 0) {
+          addLog(`📈 Debt interest accrued: +${interestAmount}g ($newDebt{g} total)`);
+        }
+        return {
+          ...prev,
+          debt: Math.min(5000, newDebt), // Cap debt at 5000g
+          lastLogin: Date.now(),
+        };
+      });
+    }
+  }, [player.inDebt, player.debt, player.lastLogin, addLog]);
+
+  const applyDebtTax = useCallback(() => {
+    if (!player.inDebt) return;
+
+    setPlayer(prev => {
+      const taxAmount = Math.floor(prev.debt * 0.10); // 10% tax
+      if (prev.money > 0) {
+        const actualTax = Math.min(taxAmount, prev.money);
+        addLog(`💰 Debt tax applied: -${actualTax}g`);
+        return { ...prev, money: prev.money - actualTax };
+      } else if (taxAmount > 0) {
+        // Add to debt if no gold available
+        addLog(`📌 Debt tax added to debt: +${taxAmount}g`);
+        return { ...prev, debt: prev.debt + taxAmount };
+      }
+      return prev;
+    });
+  }, [player.inDebt, addLog]);
+
+  const repayDebt = useCallback((amount: number) => {
+    if (amount <= 0 || player.money < amount) return;
+
+    setPlayer(prev => {
+      const repayment = Math.min(amount, prev.debt);
+      const remainingAmount = amount - repayment;
+      const newMoney = prev.money - repayment + remainingAmount; // Refund what couldn't be applied
+      const newDebt = prev.debt - repayment;
+      const newInDebt = newDebt > 0;
+
+      addLog(`✅ Debt repayment: -${repayment}g from debt. ${newDebt > 0 ? `Remaining: ${newDebt}g` : 'Debt cleared!'}`);
+
+      if (!newInDebt) {
+        addLog(`🎉 All debts cleared! You regained your honor.`);
+      }
+
+      return {
+        ...prev,
+        money: newMoney,
+        debt: newDebt,
+        inDebt: newInDebt,
+      };
+    });
+  }, [player.money, addLog]);
+
+  // Calculate debt interest on load
+  useEffect(() => {
+    calculateDebtInterest();
+    // Apply daily debt tax
+    applyDebtTax();
+
+    // Set up daily interest check
+    const dailyInterval = setInterval(() => {
+      calculateDebtInterest();
+    }, 24 * 60 * 60 * 1000); // Every 24 hours
+
+    return () => clearInterval(dailyInterval);
+  }, [calculateDebtInterest, applyDebtTax]);
+
+  // Override useElectricShock to use new penalty system
+  const useElectricShockQuestWithDebt = useCallback((targetBotId: number) => {
+    if (player.shockDevices <= 0) {
+      addLog("You don't have any shock devices!");
+      return;
+    }
+
+    const targetBot = bots.find(b => b.id === targetBotId);
+    if (!targetBot) return;
+
+    if (targetBot.stunnedUntil && Date.now() < targetBot.stunnedUntil) {
+      addLog(`${targetBot.name} is already stunned!`);
+      return;
+    }
+
+    setPlayer(prev => ({
+      ...prev,
+      shockDevices: prev.shockDevices - 1,
+      reputation: Math.max(0, prev.reputation - 5)
+    }));
+
+    setBots(prevBots => prevBots.map(bot =>
+      bot.id === targetBotId
+        ? { ...bot, stunnedUntil: Date.now() + SHOCK_STUN_DURATION_MS, isFishing: false }
+        : bot
+    ));
+
+    addLog(`⚡ You zapped ${targetBot.name}! (-5 Reputation)`);
+
+    if (Math.random() < SHOCK_CAUGHT_CHANCE) {
+      addLog(`🚨 The Lake Warden caught you! You were fined ${SHOCK_FINE}g!`);
+      applyPenalty(SHOCK_FINE, 'shock');
+    }
+
+    updateQuestProgress('use_shock');
+  }, [player.shockDevices, bots, player.reputation, addLog, applyPenalty, updateQuestProgress]);
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
@@ -505,7 +651,7 @@ export const useGameLogic = () => {
     acknowledgeCatch,
     bots,
     buyShockDevice,
-    useElectricShock: useElectricShockQuest,
+    useElectricShock: useElectricShockQuestWithDebt,
     equipRod,
     equipBait,
     buyRod,
@@ -515,6 +661,12 @@ export const useGameLogic = () => {
     startLakeCleaning: startLakeCleaningQuest,
     currentDanger,
     questProgress,
-    claimQuestReward
+    claimQuestReward,
+    applyPenalty,
+    calculateDebtInterest,
+    applyDebtTax,
+    repayDebt,
+    debtPayAmount,
+    setDebtPayAmount
   };
 };

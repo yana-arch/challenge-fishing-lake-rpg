@@ -45,6 +45,15 @@ export interface Player {
   maxEnergy: number;
   pollutionCleaned: number;
   pollutionLevel: number;
+  disruptiveActions: {
+    steals: number;
+    explosions: number;
+    chemicals: number;
+  };
+  debt: number;
+  inDebt: boolean;
+  lastLogin: number;
+  debtInterestRate: number; // Daily percentage
 }
 
 export interface Rod {

@@ -95,6 +95,15 @@ export const INITIAL_PLAYER_STATE: Player = {
   maxEnergy: 100,
   pollutionCleaned: 0,
   pollutionLevel: 0,
+  disruptiveActions: {
+    steals: 0,
+    explosions: 0,
+    chemicals: 0,
+  },
+  debt: 0,
+  inDebt: false,
+  lastLogin: Date.now(),
+  debtInterestRate: 0.05, // 5% daily
 };
 
 export const BOTS: Bot[] = [
@@ -223,3 +232,15 @@ export const getPollutionEffect = (pollutionLevel: number) => {
   if (pollutionLevel >= 25) return POLLUTION_EFFECTS[1]; // Medium
   return POLLUTION_EFFECTS[0]; // Low
 };
+
+// Disruptive Action Constants
+export const THIEF_TOOLS_COST = 500; // Gold cost for thief tools
+export const LAKE_BOMB_COST = 1000;
+export const CHEMICAL_BOTTLE_COST = 300;
+export const BLACK_MARKET_THRESHOLD = 50; // Reputation below this to access
+export const DETECTION_BASE_CHANCE = 0.3; // Base 30%
+export const DETECTION_CROWD_BONUS = 0.3; // Additional 30% if crowded
+export const STEAL_SUCCESS_DURATION_MS = 10000; // 10s stealth mini-game
+export const EXPLOSION_DURATION_MS_MIN = 30000; // 30s min
+export const EXPLOSION_DURATION_MS_MAX = 120000; // 2min max
+export const CHEMICAL_DURATION_HOURS = 4;

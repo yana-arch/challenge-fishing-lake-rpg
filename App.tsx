@@ -15,10 +15,12 @@ import Crafting from './components/Crafting';
 import './styles/animations.css';
 
 const App: React.FC = () => {
-  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward } = useGameLogic();
+  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward, applyPenalty, calculateDebtInterest, applyDebtTax, repayDebt, debtPayAmount, setDebtPayAmount } = useGameLogic();
   const { playSound } = useSoundManager();
   const [activeTab, setActiveTab] = useState<'log' | 'actions' | 'shop' | 'quests' | 'leaderboard' | 'crafting'>('log');
   const [showTutorial, setShowTutorial] = useState(!localStorage.getItem('tutorialCompleted'));
+  const [disruptiveAction, setDisruptiveAction] = useState<'steal' | 'explode' | 'chemical' | null>(null);
+  const [showDebtModal, setShowDebtModal] = useState<boolean>(false);
   const xpForNextLevel = 100;
   const xpProgress = (player.xp % xpForNextLevel) / xpForNextLevel * 100;
 
@@ -114,6 +116,23 @@ const App: React.FC = () => {
             <span className="text-green-400">{player.reputation}</span>
           </div>
 
+          {player.inDebt && (
+            <div className="bg-red-900/30 p-2 rounded mt-2 border border-red-500/30">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-red-400 flex items-center">💸 Debt</span>
+                <span className="text-red-400 font-semibold">{player.debt}g</span>
+              </div>
+              <div className="mt-1">
+                <button
+                  onClick={() => setShowDebtModal(true)}
+                  className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 rounded"
+                >
+                  Repay Debt
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="text-center text-xs text-gray-400 mt-2">
             Polluted areas cleaned: {player.pollutionCleaned}
           </div>
@@ -167,7 +186,7 @@ const App: React.FC = () => {
                     <p className="text-xs text-gray-400">Temporarily stuns another fisherman.</p>
                      <p className="text-sm text-yellow-400 mt-1">Cost: {SHOCK_DEVICE_COST}g</p>
                 </div>
-                <button 
+                <button
                     onClick={buyShockDevice}
                     disabled={player.money < SHOCK_DEVICE_COST}
                     className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
@@ -177,6 +196,46 @@ const App: React.FC = () => {
             </div>
             <p className="text-right text-sm mt-2">You have: {player.shockDevices}</p>
         </div>
+
+        {/* Black Market - only show if reputation low */}
+        {player.reputation < 50 && (
+            <div className="bg-red-900/20 p-3 rounded-lg mt-3 border border-red-500/30">
+                <h4 className="text-red-300 font-semibold mb-2">🕵️ Dark Market (Rep: {player.reputation})</h4>
+                <div className="space-y-2">
+                    <div>
+                        <p className="text-sm text-gray-300">Thief Tools - Steal fish from targets</p>
+                        <button
+                            disabled={player.money < 500}
+                            className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded disabled:opacity-50"
+                            onClick={() => alert('Steal feature ready for implementation!')}
+                        >
+                            Buy (500g)
+                        </button>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-300">Lake Bomb - Disrupt fishing globally</p>
+                        <button
+                            disabled={player.money < 1000}
+                            className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded disabled:opacity-50"
+                            onClick={() => alert('Explosion feature ready for implementation!')}
+                        >
+                            Buy (1000g)
+                        </button>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-300">Chemical - Mutate fish for profit</p>
+                        <button
+                            disabled={player.money < 300}
+                            className="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded disabled:opacity-50"
+                            onClick={() => alert('Chemical feature ready for implementation!')}
+                        >
+                            Buy (300g)
+                        </button>
+                    </div>
+                </div>
+                <p className="text-xs text-red-400 mt-2">⚠️ High risk, heavy penalties if caught!</p>
+            </div>
+        )}
     </div>
   );
 
@@ -447,6 +506,76 @@ const App: React.FC = () => {
                 >
                     Awesome!
                 </button>
+            </div>
+        </Modal>
+
+        <Modal isOpen={showDebtModal} onClose={() => setShowDebtModal(false)}>
+            <div className="p-6 max-w-sm">
+                <h2 className="text-2xl font-bold text-red-400 mb-4">💸 Debt Repayment</h2>
+                <div className="space-y-3 mb-4">
+                    <div className="bg-gray-800 p-3 rounded">
+                        <div className="flex justify-between text-sm">
+                            <span>Current Debt:</span>
+                            <span className="text-red-400 font-semibold">{player.debt}g</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                            <span>Available Gold:</span>
+                            <span className="text-yellow-400 font-semibold">{player.money}g</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-white mb-2">
+                            Amount to Repay:
+                        </label>
+                        <input
+                            type="number"
+                            min="0"
+                            max={Math.min(player.debt, player.money)}
+                            value={debtPayAmount}
+                            onChange={(e) => setDebtPayAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:border-blue-500"
+                            placeholder="Enter amount"
+                        />
+                        <div className="flex gap-2 mt-2">
+                            <button
+                                onClick={() => setDebtPayAmount(Math.min(player.debt, player.money))}
+                                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => setDebtPayAmount(Math.min(player.debt, player.money, 100))}
+                                className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
+                            >
+                                100g
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => {
+                            if (debtPayAmount > 0) repayDebt(debtPayAmount);
+                            setShowDebtModal(false);
+                            setDebtPayAmount(0);
+                        }}
+                        disabled={debtPayAmount <= 0 || debtPayAmount > Math.min(player.debt, player.money)}
+                        className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white py-2 px-4 rounded font-semibold"
+                    >
+                        Repay {debtPayAmount}g
+                    </button>
+                    <button
+                        onClick={() => {
+                            setShowDebtModal(false);
+                            setDebtPayAmount(0);
+                        }}
+                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                    >
+                        Cancel
+                    </button>
+                </div>
             </div>
         </Modal>
     </main>
