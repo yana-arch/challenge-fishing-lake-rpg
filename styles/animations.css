@@ -1,0 +1,348 @@
+/* Custom animations for the fishing game */
+
+/* Fade in animation for game logs */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Water ripple effect */
+@keyframes waterRipple {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+.water-ripple {
+  animation: waterRipple 2s infinite;
+}
+
+/* Fish swimming animation */
+@keyframes fishSwim {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(5px) rotate(1deg);
+  }
+  75% {
+    transform: translateX(-5px) rotate(-1deg);
+  }
+}
+
+.animate-fish-swim {
+  animation: fishSwim 3s ease-in-out infinite;
+}
+
+/* Button hover effects */
+@keyframes buttonGlow {
+  0% {
+    box-shadow: 0 0 5px rgba(6, 182, 212, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(6, 182, 212, 0.5);
+  }
+}
+
+.btn-glow:hover {
+  animation: buttonGlow 1.5s ease-in-out infinite;
+}
+
+/* Item catch animation */
+@keyframes itemCatch {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+.animate-item-catch {
+  animation: itemCatch 0.8s ease-out;
+}
+
+/* Shock effect animation */
+@keyframes shockEffect {
+  0% {
+    filter: brightness(1) hue-rotate(0deg);
+    transform: translateX(0);
+  }
+  25% {
+    filter: brightness(2) hue-rotate(90deg);
+    transform: translateX(-2px);
+  }
+  50% {
+    filter: brightness(1.5) hue-rotate(180deg);
+    transform: translateX(2px);
+  }
+  75% {
+    filter: brightness(2) hue-rotate(270deg);
+    transform: translateX(-2px);
+  }
+  100% {
+    filter: brightness(1) hue-rotate(360deg);
+    transform: translateX(0);
+  }
+}
+
+.animate-shock {
+  animation: shockEffect 0.5s ease-in-out;
+}
+
+/* Level up animation */
+@keyframes levelUp {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.2);
+    filter: brightness(1.5) drop-shadow(0 0 10px gold);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.animate-level-up {
+  animation: levelUp 1s ease-in-out;
+}
+
+/* Money gain animation */
+@keyframes moneyGain {
+  0% {
+    transform: translateY(0) scale(1);
+    color: #fbbf24;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.1);
+    color: #f59e0b;
+  }
+  100% {
+    transform: translateY(-40px) scale(0.9);
+    color: #d97706;
+    opacity: 0;
+  }
+}
+
+.animate-money-gain {
+  animation: moneyGain 1.5s ease-out forwards;
+}
+
+/* Inventory item hover effect */
+@keyframes itemHover {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.inventory-item:hover {
+  animation: itemHover 0.3s ease-in-out;
+}
+
+/* Lake background animation */
+@keyframes lakeShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.lake-shimmer {
+  background: linear-gradient(90deg, #1e40af 25%, #3b82f6 50%, #1e40af 75%);
+  background-size: 200% 100%;
+  animation: lakeShimmer 4s ease-in-out infinite;
+}
+
+/* Bobber animation */
+@keyframes bobberFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.animate-bobber {
+  animation: bobberFloat 2s ease-in-out infinite;
+}
+
+/* Screen shake effect for explosions */
+@keyframes screenShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-2px);
+  }
+  20% {
+    transform: translateX(2px);
+  }
+  30% {
+    transform: translateX(-2px);
+  }
+  40% {
+    transform: translateX(2px);
+  }
+  50% {
+    transform: translateX(-1px);
+  }
+  60% {
+    transform: translateX(1px);
+  }
+  70% {
+    transform: translateX(-1px);
+  }
+  80% {
+    transform: translateX(1px);
+  }
+  90% {
+    transform: translateX(-0.5px);
+  }
+}
+
+.animate-screen-shake {
+  animation: screenShake 0.5s ease-in-out;
+}
+
+/* Progress bar fill animation */
+@keyframes progressFill {
+  0% {
+    width: 0%;
+  }
+}
+
+.animate-progress-fill {
+  animation: progressFill 0.5s ease-out forwards;
+}
+
+/* Card flip animation for item reveals */
+@keyframes cardFlip {
+  0% {
+    transform: rotateY(0deg);
+  }
+  100% {
+    transform: rotateY(180deg);
+  }
+}
+
+.animate-card-flip {
+  animation: cardFlip 0.6s ease-in-out;
+}
+
+/* Breathing effect for important elements */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.animate-breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
+/* Sparkle effect for rare items */
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.8) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(180deg);
+  }
+}
+
+.sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.sparkle:nth-child(1) { animation-delay: 0s; }
+.sparkle:nth-child(2) { animation-delay: 0.3s; }
+.sparkle:nth-child(3) { animation-delay: 0.6s; }
+.sparkle:nth-child(4) { animation-delay: 0.9s; }
+.sparkle:nth-child(5) { animation-delay: 1.2s; }
+
+/* Typewriter effect for text */
+@keyframes typewriter {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.typewriter {
+  overflow: hidden;
+  border-right: 2px solid;
+  white-space: nowrap;
+  animation: typewriter 2s steps(20) 1s both;
+}
+
+/* Pulse effect for notifications */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s ease-in-out infinite;
+}

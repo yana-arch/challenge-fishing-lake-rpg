@@ -4,11 +4,17 @@ import { GameStatus, ItemType } from './types';
 import { CoinIcon, LevelIcon, FishIcon, ZapIcon } from './components/Icons';
 import { RARITY_COLORS, SHOCK_DEVICE_COST } from './constants';
 import FishingMinigame from './components/FishingMinigame';
+import DivingMinigame from './components/DivingMinigame';
 import Modal from './components/Modal';
+import Shop from './components/Shop';
+import Quests from './components/Quests';
+import Leaderboard from './components/Leaderboard';
+import Crafting from './components/Crafting';
+import './styles/animations.css';
 
 const App: React.FC = () => {
-  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock } = useGameLogic();
-  const [activeTab, setActiveTab] = useState<'log' | 'actions'>('log');
+  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward } = useGameLogic();
+  const [activeTab, setActiveTab] = useState<'log' | 'actions' | 'shop' | 'quests' | 'leaderboard' | 'crafting'>('log');
   const xpForNextLevel = 100;
   const xpProgress = (player.xp % xpForNextLevel) / xpForNextLevel * 100;
 
@@ -24,13 +30,40 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
-      <div>
-        <div className="flex justify-between items-center mb-1 text-sm">
-          <span className="font-semibold text-gray-300 flex items-center"><LevelIcon className="w-4 h-4 mr-1"/> Level {player.level}</span>
-          <span className="text-gray-400">{player.xp % xpForNextLevel} / {xpForNextLevel} XP</span>
+      <div className="space-y-3">
+        <div>
+          <div className="flex justify-between items-center mb-1 text-sm">
+            <span className="font-semibold text-gray-300 flex items-center"><LevelIcon className="w-4 h-4 mr-1"/> Level {player.level}</span>
+            <span className="text-gray-400">{player.xp % xpForNextLevel} / {xpForNextLevel} XP</span>
+          </div>
+          <div className="w-full bg-gray-700 rounded-full h-2.5">
+            <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${xpProgress}%` }}></div>
+          </div>
         </div>
-        <div className="w-full bg-gray-700 rounded-full h-2.5">
-          <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${xpProgress}%` }}></div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-cyan-300 flex items-center">
+              <ZapIcon className="w-4 h-4 mr-1" />
+              Energy
+            </span>
+            <span className="text-gray-300">{player.energy} / {player.maxEnergy}</span>
+          </div>
+          <div className="w-full bg-gray-700 rounded-full h-2">
+            <div
+              className="bg-cyan-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(player.energy / player.maxEnergy) * 100}%` }}
+            ></div>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-green-400 flex items-center">★ Reputation</span>
+            <span className="text-green-400">{player.reputation}</span>
+          </div>
+
+          <div className="text-center text-xs text-gray-400 mt-2">
+            Polluted areas cleaned: {player.pollutionCleaned}
+          </div>
         </div>
       </div>
     </div>
@@ -143,10 +176,22 @@ const App: React.FC = () => {
             return 'Waiting...';
         case GameStatus.Reeling:
             return 'Reeling!';
+        case GameStatus.Diving:
+            return 'Diving...';
+        case GameStatus.DivingCombat:
+            return 'Fighting!';
+        case GameStatus.CleaningLake:
+            return 'Cleaning...';
         default:
             return '...';
     }
   }
+
+  const handleCrafting = (recipeId: string, recipeName: string, success: boolean) => {
+    // For now, this is a placeholder - actual crafting logic would be in useGameLogic hook
+    console.log(`Crafting: ${recipeId} - ${recipeName} - Success: ${success}`);
+    // In a full implementation, this would trigger the crafting process in the game logic
+  };
 
   return (
     <main className="min-h-screen bg-gray-900 bg-cover bg-center p-4 lg:p-8 font-sans" style={{backgroundImage: "url('https://picsum.photos/seed/lakebg/1920/1080')"}}>
@@ -162,7 +207,7 @@ const App: React.FC = () => {
             <div className="flex-grow">
               <LakeView />
             </div>
-            <div className="flex-shrink-0 mt-4">
+            <div className="flex-shrink-0 mt-4 space-y-2">
                 <button
                     onClick={castLine}
                     disabled={status !== GameStatus.Idle && status !== GameStatus.Caught}
@@ -173,33 +218,90 @@ const App: React.FC = () => {
                 >
                     {getButtonText()}
                 </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        onClick={startDiving}
+                        disabled={status !== GameStatus.Idle && status !== GameStatus.Caught}
+                        className="text-sm font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out transform disabled:cursor-not-allowed
+                        bg-blue-600 text-white shadow-lg
+                        enabled:hover:bg-blue-500 enabled:hover:scale-105
+                        disabled:bg-gray-600 disabled:text-gray-400"
+                    >
+                        🤿 Dive
+                    </button>
+                    <button
+                        onClick={startLakeCleaning}
+                        disabled={status !== GameStatus.Idle && status !== GameStatus.Caught}
+                        className="text-sm font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out transform disabled:cursor-not-allowed
+                        bg-green-600 text-white shadow-lg
+                        enabled:hover:bg-green-500 enabled:hover:scale-105
+                        disabled:bg-gray-600 disabled:text-gray-400"
+                    >
+                        🧽 Clean
+                    </button>
+                </div>
             </div>
           </div>
 
           <div className="lg:col-span-1 flex flex-col h-full bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
-            <div className="flex-shrink-0 border-b border-gray-700">
-              <button 
-                onClick={() => setActiveTab('log')}
-                className={`py-2 px-4 text-sm font-semibold transition-colors ${activeTab === 'log' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
-              >
-                Game Log
-              </button>
-              <button 
-                onClick={() => setActiveTab('actions')}
-                className={`py-2 px-4 text-sm font-semibold transition-colors ${activeTab === 'actions' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
-              >
-                Actions
-              </button>
+            <div className="flex-shrink-0 border-b border-gray-700 overflow-x-auto">
+              <div className="flex">
+                <button
+                  onClick={() => setActiveTab('log')}
+                  className={`py-2 px-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'log' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
+                >
+                  Game Log
+                </button>
+                <button
+                  onClick={() => setActiveTab('actions')}
+                  className={`py-2 px-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'actions' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
+                >
+                  Actions
+                </button>
+                <button
+                  onClick={() => setActiveTab('shop')}
+                  className={`py-2 px-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'shop' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
+                >
+                  Shop
+                </button>
+                <button
+                  onClick={() => setActiveTab('quests')}
+                  className={`py-2 px-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'quests' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
+                >
+                  Quests
+                </button>
+                <button
+                  onClick={() => setActiveTab('leaderboard')}
+                  className={`py-2 px-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'leaderboard' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
+                >
+                  Leaderboard
+                </button>
+                <button
+                  onClick={() => setActiveTab('crafting')}
+                  className={`py-2 px-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'crafting' ? 'bg-gray-700 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}
+                >
+                  Crafting
+                </button>
+              </div>
             </div>
             <div className="p-4 flex-grow flex flex-col overflow-y-auto">
               {activeTab === 'log' && <GameLogPanel />}
               {activeTab === 'actions' && <ActionsPanel />}
+              {activeTab === 'shop' && <Shop playerMoney={player.money} onBuyRod={buyRod} onBuyBait={buyBait} />}
+              {activeTab === 'quests' && <Quests playerLevel={player.level} playerMoney={player.money} questProgress={questProgress} onClaimReward={claimQuestReward} />}
+              {activeTab === 'leaderboard' && <Leaderboard currentPlayerName={player.name} currentPlayerLevel={player.level} currentPlayerMoney={player.money} />}
+              {activeTab === 'crafting' && <Crafting playerInventory={player.inventory} playerLevel={player.level} playerMoney={player.money} onCraft={(recipeId, recipeName, success) => handleCrafting(recipeId, recipeName, success)} />}
             </div>
           </div>
         </div>
 
         <Modal isOpen={status === GameStatus.Reeling} showCloseButton={false}>
           {itemOnLine && <FishingMinigame itemOnLine={itemOnLine} onComplete={finishReeling} />}
+        </Modal>
+
+        <Modal isOpen={status === GameStatus.DivingCombat} showCloseButton={false}>
+          <DivingMinigame danger={currentDanger} onComplete={finishDivingCombat} />
         </Modal>
 
         <Modal isOpen={status === GameStatus.Caught && lastCaughtItem !== null} onClose={acknowledgeCatch}>
