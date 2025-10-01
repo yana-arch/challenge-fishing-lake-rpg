@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useGameLogic } from './hooks/useGameLogic';
+import { useSoundManager } from './components/SoundManager';
+import { SoundManagerProvider } from './components/SoundManager';
 import { GameStatus, ItemType } from './types';
 import { CoinIcon, LevelIcon, FishIcon, ZapIcon } from './components/Icons';
 import { RARITY_COLORS, SHOCK_DEVICE_COST } from './constants';
@@ -14,6 +16,7 @@ import './styles/animations.css';
 
 const App: React.FC = () => {
   const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward } = useGameLogic();
+  const { playSound } = useSoundManager();
   const [activeTab, setActiveTab] = useState<'log' | 'actions' | 'shop' | 'quests' | 'leaderboard' | 'crafting'>('log');
   const xpForNextLevel = 100;
   const xpProgress = (player.xp % xpForNextLevel) / xpForNextLevel * 100;
@@ -209,7 +212,10 @@ const App: React.FC = () => {
             </div>
             <div className="flex-shrink-0 mt-4 space-y-2">
                 <button
-                    onClick={castLine}
+                    onClick={() => {
+                      playSound('fishingCast');
+                      castLine();
+                    }}
                     disabled={status !== GameStatus.Idle && status !== GameStatus.Caught}
                     className="w-full text-2xl font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out transform disabled:cursor-not-allowed
                     bg-cyan-600 text-white shadow-lg
@@ -221,7 +227,10 @@ const App: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2">
                     <button
-                        onClick={startDiving}
+                        onClick={() => {
+                          playSound('divingStart');
+                          startDiving();
+                        }}
                         disabled={status !== GameStatus.Idle && status !== GameStatus.Caught}
                         className="text-sm font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out transform disabled:cursor-not-allowed
                         bg-blue-600 text-white shadow-lg
@@ -231,7 +240,10 @@ const App: React.FC = () => {
                         🤿 Dive
                     </button>
                     <button
-                        onClick={startLakeCleaning}
+                        onClick={() => {
+                          playSound('cleanupComplete');
+                          startLakeCleaning();
+                        }}
                         disabled={status !== GameStatus.Idle && status !== GameStatus.Caught}
                         className="text-sm font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out transform disabled:cursor-not-allowed
                         bg-green-600 text-white shadow-lg
