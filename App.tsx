@@ -15,7 +15,7 @@ import Crafting from './components/Crafting';
 import './styles/animations.css';
 
 const App: React.FC = () => {
-  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward, applyPenalty, calculateDebtInterest, applyDebtTax, repayDebt, debtPayAmount, setDebtPayAmount, eatFish, throwBombAtBot, shareFish } = useGameLogic();
+  const { player, status, logs, castLine, finishReeling, sellItem, itemOnLine, lastCaughtItem, acknowledgeCatch, bots, buyShockDevice, useElectricShock, equipRod, equipBait, buyRod, buyBait, startDiving, finishDivingCombat, startLakeCleaning, currentDanger, questProgress, claimQuestReward, applyPenalty, calculateDebtInterest, applyDebtTax, repayDebt, debtPayAmount, setDebtPayAmount, eatFish, throwBombAtBot, craftItem, shareFish } = useGameLogic();
   const { playSound } = useSoundManager();
   const [activeTab, setActiveTab] = useState<'log' | 'actions' | 'shop' | 'quests' | 'leaderboard' | 'crafting'>('log');
   const [showTutorial, setShowTutorial] = useState(!localStorage.getItem('tutorialCompleted'));
@@ -341,9 +341,7 @@ const App: React.FC = () => {
   }
 
   const handleCrafting = (recipeId: string, recipeName: string, success: boolean) => {
-    // For now, this is a placeholder - actual crafting logic would be in useGameLogic hook
-    console.log(`Crafting: ${recipeId} - ${recipeName} - Success: ${success}`);
-    // In a full implementation, this would trigger the crafting process in the game logic
+    craftItem(recipeId, recipeName);
   };
 
   return (

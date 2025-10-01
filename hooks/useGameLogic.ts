@@ -677,6 +677,166 @@ export const useGameLogic = () => {
     addLog(`🎁 Shared ${fish.name} with ${targetBot.name}. +${fish.rarity === 'Rare' ? 10 : 5} reputation!`);
   }, [player, bots, addLog]);
 
+  // Crafting system
+  const craftItem = useCallback((recipeId: string, recipeName: string) => {
+    const recipes = [
+      {
+        id: 'recipe_magic_bait',
+        name: 'Magic Bait',
+        ingredients: [
+          { itemId: 'fish_1', quantity: 3 },
+          { itemId: 'treasure_1', quantity: 1 },
+        ],
+        result: {
+          id: 'bait_magic',
+          name: 'Magic Bait',
+          description: 'Enchanted bait that attracts rare fish.',
+          value: 100,
+          type: 'Bait' as any,
+          rarity: 'Epic' as any,
+          icon: '🪄',
+          fishTypeMultiplier: {
+            'fish_1': 0.5, 'fish_2': 0.8, 'fish_3': 1.2, 'fish_4': 1.8, 'fish_5': 2.5
+          },
+          quantity: 2,
+        } as any,
+        requiredLevel: 5,
+        craftingTime: 30,
+      },
+      {
+        id: 'recipe_super_bait',
+        name: 'Super Bait',
+        ingredients: [
+          { itemId: 'fish_4', quantity: 2 },
+          { itemId: 'treasure_3', quantity: 1 },
+        ],
+        result: {
+          id: 'bait_super',
+          name: 'Super Bait',
+          description: 'Ultimate bait for legendary fish.',
+          value: 200,
+          type: 'Bait' as any,
+          rarity: 'Legendary' as any,
+          icon: '⭐',
+          fishTypeMultiplier: {
+            'fish_1': 0.3, 'fish_2': 0.5, 'fish_3': 1.0, 'fish_4': 2.0, 'fish_5': 3.0
+          },
+          quantity: 1,
+        } as any,
+        requiredLevel: 10,
+        craftingTime: 60,
+      },
+      {
+        id: 'recipe_reinforced_rod',
+        name: 'Reinforced Rod',
+        ingredients: [
+          { itemId: 'rod_basic', quantity: 1 },
+          { itemId: 'treasure_2', quantity: 2 },
+        ],
+        result: {
+          id: 'rod_reinforced',
+          name: 'Reinforced Rod',
+          description: 'A stronger, more durable fishing rod.',
+          value: 350,
+          type: 'Rod' as any,
+          rarity: 'Uncommon' as any,
+          icon: '🔧',
+          successRate: 0.85,
+          pullSpeed: 1.3,
+          durability: 200,
+          maxDurability: 200,
+        } as any,
+        requiredLevel: 3,
+        craftingTime: 45,
+      },
+      {
+        id: 'recipe_lucky_charm',
+        name: 'Lucky Charm',
+        ingredients: [
+          { itemId: 'treasure_4', quantity: 1 },
+          { itemId: 'fish_5', quantity: 1 },
+        ],
+        result: {
+          id: 'special_lucky_charm',
+          name: 'Lucky Charm',
+          description: 'Increases chance of catching rare items.',
+          value: 500,
+          type: 'Treasure' as any,
+          rarity: 'Legendary' as any,
+          icon: '🍀',
+        } as any,
+        requiredLevel: 15,
+        craftingTime: 90,
+      },
+    ];
+
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return;
+
+    // Check if player has required level
+    if (player.level < recipe.requiredLevel) {
+      addLog(`You need to be level ${recipe.requiredLevel} to craft ${recipeName}!`);
+      return;
+    }
+
+    // Check and consume ingredients
+    let canCraft = true;
+    const inventoryCounts: { [key: string]: number } = {};
+    player.inventory.forEach(item => {
+      inventoryCounts[item.id] = (inventoryCounts[item.id] || 0) + 1;
+    });
+
+    for (const ingredient of recipe.ingredients) {
+      if (!inventoryCounts[ingredient.itemId] || inventoryCounts[ingredient.itemId] < ingredient.quantity) {
+        canCraft = false;
+        break;
+      }
+    }
+
+    if (!canCraft) {
+      addLog(`Missing ingredients to craft ${recipeName}!`);
+      return;
+    }
+
+    // Consume ingredients
+    setPlayer(prev => {
+      let newInventory = [...prev.inventory];
+      for (const ingredient of recipe.ingredients) {
+        let remaining = ingredient.quantity;
+        // First, look for exact item IDs, then try to remove instances
+        newInventory = newInventory.filter(item => {
+          if (item.id === ingredient.itemId && remaining > 0) {
+            remaining--;
+            return false; // Remove this item
+          }
+          return true; // Keep other items
+        });
+      }
+      return { ...prev, inventory: newInventory };
+    });
+
+    // Simulate crafting delay
+    setTimeout(() => {
+      // Add crafted item to inventory
+      const craftedItem = {
+        ...recipe.result,
+        instanceId: crypto.randomUUID(),
+        edible: false,
+        energyValue: undefined,
+      };
+
+      setPlayer(prev => ({
+        ...prev,
+        inventory: [...prev.inventory, craftedItem],
+        xp: prev.xp + Math.floor(recipe.result.value / 10), // XP for crafting
+      }));
+
+      addLog(`🎉 Successfully crafted ${recipeName}! (+${Math.floor(recipe.result.value / 10)} XP)`);
+    }, recipe.craftingTime * 100); // Convert seconds to milliseconds
+
+    addLog(`🔨 Started crafting ${recipeName}... (${recipe.craftingTime}s)`);
+  }, [player.inventory, player.level, addLog]);
+
   // Calculate debt interest on load (stable without callback dependencies)
   useEffect(() => {
     // Only run if player data is available
@@ -805,6 +965,7 @@ export const useGameLogic = () => {
     setDebtPayAmount,
     eatFish,
     throwBombAtBot,
+    craftItem,
     shareFish
   };
 };
