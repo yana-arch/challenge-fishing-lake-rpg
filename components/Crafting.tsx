@@ -40,7 +40,7 @@ const Crafting: React.FC<CraftingProps> = ({ playerInventory, playerLevel, onCra
         value: 100,
         type: ItemType.Bait,
         rarity: Rarity.Epic,
-        icon: React.createElement(<span>🪄</span>), // Placeholder icon
+        icon: '🪄', // Placeholder icon
       },
       craftingTime: 30,
       requiredLevel: 5,
@@ -60,7 +60,7 @@ const Crafting: React.FC<CraftingProps> = ({ playerInventory, playerLevel, onCra
         value: 200,
         type: ItemType.Bait,
         rarity: Rarity.Legendary,
-        icon: React.createElement(<span>⭐</span>), // Placeholder icon
+        icon: '⭐', // Placeholder icon
       },
       craftingTime: 60,
       requiredLevel: 10,
@@ -82,7 +82,7 @@ const Crafting: React.FC<CraftingProps> = ({ playerInventory, playerLevel, onCra
         value: 300,
         type: ItemType.Rod,
         rarity: Rarity.Uncommon,
-        icon: React.createElement(<span>🔧</span>), // Placeholder icon
+        icon: '🔧', // Placeholder icon
       },
       craftingTime: 45,
       requiredLevel: 3,
@@ -104,7 +104,7 @@ const Crafting: React.FC<CraftingProps> = ({ playerInventory, playerLevel, onCra
         value: 500,
         type: ItemType.Treasure,
         rarity: Rarity.Legendary,
-        icon: React.createElement(<span>🍀</span>), // Placeholder icon
+        icon: '🍀', // Placeholder icon
       },
       craftingTime: 90,
       requiredLevel: 15,
