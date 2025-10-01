@@ -482,29 +482,38 @@ const App: React.FC = () => {
           <DivingMinigame danger={currentDanger} onComplete={finishDivingCombat} />
         </Modal>
 
-        <Modal isOpen={status === GameStatus.Caught && lastCaughtItem !== null} onClose={acknowledgeCatch}>
+        <Modal isOpen={status === GameStatus.Caught} onClose={acknowledgeCatch}>
             <div className="text-center p-4">
-                {lastCaughtItem?.type === ItemType.Bomb ? (
-                    <>
-                        <h2 className="text-2xl font-bold text-red-500 mb-2">BOOM!</h2>
-                        <div className="mx-auto my-4 text-5xl">{lastCaughtItem?.icon}</div>
-                        <p className="text-lg">You caught a <span className="font-semibold">{lastCaughtItem?.name}</span> and it exploded!</p>
-                        <p className="text-gray-400 mt-1">{lastCaughtItem?.description}</p>
-                    </>
+                {lastCaughtItem ? (
+                    lastCaughtItem?.type === ItemType.Bomb ? (
+                        <>
+                            <h2 className="text-2xl font-bold text-red-500 mb-2">BOOM!</h2>
+                            <div className="mx-auto my-4 text-5xl">{lastCaughtItem?.icon}</div>
+                            <p className="text-lg">You caught a <span className="font-semibold">{lastCaughtItem?.name}</span> and it exploded!</p>
+                            <p className="text-gray-400 mt-1">{lastCaughtItem?.description}</p>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="text-2xl font-bold text-green-400 mb-2">You Caught Something!</h2>
+                            <div className={`mx-auto my-4 text-6xl ${RARITY_COLORS[lastCaughtItem?.rarity || 'Common']}`}>{lastCaughtItem?.icon}</div>
+                            <p className="text-xl">It's a <span className={`font-semibold ${RARITY_COLORS[lastCaughtItem?.rarity || 'Common']}`}>{lastCaughtItem?.name}</span>!</p>
+                            <p className="text-gray-400 mt-1">{lastCaughtItem?.description}</p>
+                            <p className="mt-4 text-yellow-400 text-lg font-bold">Value: {lastCaughtItem?.value}g</p>
+                        </>
+                    )
                 ) : (
                     <>
-                        <h2 className="text-2xl font-bold text-green-400 mb-2">You Caught Something!</h2>
-                        <div className={`mx-auto my-4 text-6xl ${RARITY_COLORS[lastCaughtItem?.rarity || 'Common']}`}>{lastCaughtItem?.icon}</div>
-                        <p className="text-xl">It's a <span className={`font-semibold ${RARITY_COLORS[lastCaughtItem?.rarity || 'Common']}`}>{lastCaughtItem?.name}</span>!</p>
-                        <p className="text-gray-400 mt-1">{lastCaughtItem?.description}</p>
-                        <p className="mt-4 text-yellow-400 text-lg font-bold">Value: {lastCaughtItem?.value}g</p>
+                        <h2 className="text-2xl font-bold text-orange-400 mb-2">Missed It!</h2>
+                        <div className="mx-auto my-4 text-6xl">💭</div>
+                        <p className="text-xl">The catch got away...</p>
+                        <p className="text-gray-400 mt-1">Better luck next time!</p>
                     </>
                 )}
                 <button
                     onClick={acknowledgeCatch}
                     className="mt-6 w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded transition-transform duration-200 transform hover:scale-105"
                 >
-                    Awesome!
+                    {lastCaughtItem ? 'Awesome!' : 'Try Again'}
                 </button>
             </div>
         </Modal>

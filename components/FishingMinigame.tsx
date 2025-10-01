@@ -30,10 +30,17 @@ const FishingMinigame: React.FC<FishingMinigameProps> = ({ itemOnLine, onComplet
   useEffect(() => {
     gameRef.current = setInterval(() => {
       setPosition(prev => {
-        const next = prev + direction * difficulty.speed;
-        if (next >= 100 || next <= 0) {
-          setDirection(d => -d);
+        let next = prev + direction * difficulty.speed;
+
+        // Better boundary checking
+        if (next >= 100) {
+          setDirection(-1); // Reverse direction
+          next = 100; // Clamp to edge
+        } else if (next <= 0) {
+          setDirection(1); // Reverse direction
+          next = 0; // Clamp to edge
         }
+
         return Math.max(0, Math.min(100, next));
       });
     }, 50);
@@ -60,13 +67,23 @@ const FishingMinigame: React.FC<FishingMinigameProps> = ({ itemOnLine, onComplet
       <p className="text-gray-300 mb-6">Click 'Reel In!' when the marker is in the green zone!</p>
 
       <div className="w-full bg-gray-700 rounded-full h-8 mb-4 relative overflow-hidden border-2 border-gray-600">
-        <div 
+        <div
             className="absolute top-0 bg-green-500 h-full"
             style={{ left: `${successZoneStart}%`, width: `${difficulty.zone}%` }}
         />
-        <div 
-            className="absolute top-0 bg-red-500 h-full w-1"
-            style={{ left: `${position}%` }}
+        {/* Left edge marker */}
+        <div className="absolute top-0 left-0 bg-yellow-400 w-1 h-full opacity-70"></div>
+        {/* Right edge marker */}
+        <div className="absolute top-0 right-0 bg-yellow-400 w-1 h-full opacity-70"></div>
+        <div
+            className={`absolute top-0 ${position <= 1 ? 'animate-pulse' : position >= 99 ? 'animate-pulse' : ''}`}
+            style={{
+                left: `${position}%`,
+                backgroundColor: position <= 1 || position >= 99 ? '#fbbf24' : '#ef4444', // Yellow when at edge, red when normal
+                width: '2px',
+                height: '100%',
+                transform: 'translateX(-1px)' // Center the 2px line
+            }}
         />
       </div>
 
